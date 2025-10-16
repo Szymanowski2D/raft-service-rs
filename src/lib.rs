@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use prost::DecodeError;
 use tonic::async_trait;
 
@@ -23,6 +21,6 @@ pub trait ApplicationData: Default + Send + Sync {
     async fn apply(&mut self, request: Self::Request) -> anyhow::Result<bool>;
 }
 
-pub trait ApplicationConfig: Copy + Debug + Default + Ord + Send + Sync + 'static {
+pub trait ApplicationConfig: Default + Send + Sync + 'static {
     type ApplicationData: ApplicationData;
 }
