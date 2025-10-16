@@ -7,7 +7,7 @@ use crate::ApplicationConfig;
 use crate::raft::config::type_config::NodeId;
 use crate::raft::config::type_config::Raft;
 use crate::raft::log_store::rocksdb::RocksLogStore;
-use crate::raft::network::Network;
+use crate::raft::network::grpc::GRPCNetwork;
 use crate::raft::state_machine::store::StateMachineStore;
 
 pub(crate) mod config;
@@ -28,7 +28,7 @@ pub async fn new_raft<C: ApplicationConfig>(node_id: NodeId, path: &Path) -> any
         .validate()?,
     );
 
-    let network = Network::default();
+    let network = GRPCNetwork::default();
     let log_store = RocksLogStore::new(path)?;
     let state_machine = Arc::new(StateMachineStore::<C>::default());
 
