@@ -7,6 +7,7 @@ use crate::pb::Entry;
 use crate::raft::config::type_config::CommittedLeaderId;
 use crate::raft::config::type_config::EntryPayload;
 use crate::raft::config::type_config::LogId;
+use crate::raft::config::type_config::Membership;
 use crate::raft::config::type_config::TypeConfig;
 
 impl Display for Entry {
@@ -16,7 +17,7 @@ impl Display for Entry {
 }
 
 impl RaftPayload<TypeConfig> for Entry {
-    fn get_membership(&self) -> Option<openraft::Membership<TypeConfig>> {
+    fn get_membership(&self) -> Option<Membership> {
         self.membership.clone().map(Into::into)
     }
 }

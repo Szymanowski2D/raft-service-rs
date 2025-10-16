@@ -1,9 +1,7 @@
-use openraft::raft::AppendEntriesResponse;
-
 use crate::pb::AppendEntriesResponse as PbAppendEntriesResponse;
-use crate::raft::config::type_config::TypeConfig;
+use crate::raft::config::type_config::AppendEntriesResponse;
 
-impl From<PbAppendEntriesResponse> for AppendEntriesResponse<TypeConfig> {
+impl From<PbAppendEntriesResponse> for AppendEntriesResponse {
     fn from(resp: PbAppendEntriesResponse) -> Self {
         if let Some(higher) = resp.rejected_by {
             return AppendEntriesResponse::HigherVote(higher);
@@ -21,8 +19,8 @@ impl From<PbAppendEntriesResponse> for AppendEntriesResponse<TypeConfig> {
     }
 }
 
-impl From<AppendEntriesResponse<TypeConfig>> for PbAppendEntriesResponse {
-    fn from(resp: AppendEntriesResponse<TypeConfig>) -> Self {
+impl From<AppendEntriesResponse> for PbAppendEntriesResponse {
+    fn from(resp: AppendEntriesResponse) -> Self {
         match resp {
             AppendEntriesResponse::Success => Self {
                 rejected_by: None,
