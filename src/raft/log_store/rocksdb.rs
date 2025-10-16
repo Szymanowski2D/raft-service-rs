@@ -28,6 +28,9 @@ use tokio::task::spawn_blocking;
 
 use crate::raft::log_store::rocksdb::meta::StoreMeta;
 
+const META_COLUMN: &'static str = "meta";
+const LOGS_COLUMN: &'static str = "logs";
+
 #[derive(Clone)]
 pub(in crate::raft) struct RocksLogStore<C> {
     db: Arc<DB>,
@@ -41,10 +44,8 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
         opts.create_if_missing(true);
 
         let cfs = vec![
-            ColumnFamilyDescriptor::new("meta", Options::default()),
-            ColumnFamilyDescriptor::new("sm_meta", Options::default()),
-            ColumnFamilyDescriptor::new("sm_data", Options::default()),
-            ColumnFamilyDescriptor::new("logs", Options::default()),
+            ColumnFamilyDescriptor::new(META_COLUMN, Options::default()),
+            ColumnFamilyDescriptor::new(LOGS_COLUMN, Options::default()),
         ];
 
         let db =
@@ -57,11 +58,11 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
     }
 
     fn cf_meta(&self) -> &ColumnFamily {
-        self.db.cf_handle("meta").unwrap()
+        self.db.cf_handle(META_COLUMN).unwrap()
     }
 
     fn cf_logs(&self) -> &ColumnFamily {
-        self.db.cf_handle("logs").unwrap()
+        self.db.cf_handle(LOGS_COLUMN).unwrap()
     }
 
     fn get_meta<M: StoreMeta<C>>(&self) -> Result<Option<M::Value>, StorageError<C>> {
