@@ -28,8 +28,8 @@ use tokio::task::spawn_blocking;
 
 use crate::raft::log_store::rocksdb::meta::StoreMeta;
 
-const META_COLUMN: &'static str = "meta";
-const LOGS_COLUMN: &'static str = "logs";
+const META_COLUMN: &str = "meta";
+const LOGS_COLUMN: &str = "logs";
 
 #[derive(Clone)]
 pub(in crate::raft) struct RocksLogStore<C> {
