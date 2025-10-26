@@ -1,42 +1,76 @@
+use std::sync::Arc;
 use std::time::Duration;
 
-use tempfile::NamedTempFile;
+use maplit::hashmap;
+use raft_service_rs::Node;
+use tempfile::TempDir;
+use tracing_subscriber::EnvFilter;
 
 use crate::key_value_service::KeyValueService;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
 async fn test_cluster() -> anyhow::Result<()> {
-    let _s1 = tokio::spawn(async {
-        let tmpfile = NamedTempFile::new()?;
+    tracing_subscriber::fmt()
+        .with_target(true)
+        .with_thread_ids(true)
+        .with_level(true)
+        .with_ansi(false)
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
-        let raft_server = KeyValueService::new(1, 21001, tmpfile.path()).await?;
-        raft_server.run().await?;
+    let raft1 = {
+        let tmp = TempDir::new()?;
+        Arc::new(KeyValueService::new(1, 21001, tmp.path()).await?)
+    };
 
-        anyhow::Ok(())
+    let raft2 = {
+        let tmp = TempDir::new()?;
+        Arc::new(KeyValueService::new(2, 21002, tmp.path()).await?)
+    };
+
+    let raft3 = {
+        let tmp = TempDir::new()?;
+        Arc::new(KeyValueService::new(3, 21003, tmp.path()).await?)
+    };
+
+    let _h1 = tokio::spawn({
+        let raft = raft1.clone();
+        async move { raft.run().await }
     });
 
-    let _s2 = tokio::spawn(async {
-        let tmpfile = NamedTempFile::new()?;
-
-        let raft_server = KeyValueService::new(2, 21002, tmpfile.path()).await?;
-        raft_server.run().await?;
-
-        anyhow::Ok(())
+    let _h2 = tokio::spawn({
+        let raft = raft2.clone();
+        async move { raft.run().await }
     });
 
-    let _s3 = tokio::spawn(async {
-        let tmpfile = NamedTempFile::new()?;
-
-        let raft_server = KeyValueService::new(3, 21003, tmpfile.path()).await?;
-        raft_server.run().await?;
-
-        anyhow::Ok(())
+    let _h3 = tokio::spawn({
+        let raft = raft3.clone();
+        async move { raft.run().await }
     });
 
     // Wait for server to start up.
     tokio::time::sleep(Duration::from_millis(200)).await;
 
+    raft1
+        .initialize(hashmap! {
+            1 => node_address(1)
+        })
+        .await?;
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    raft1.add_learner(node_address(2)).await?;
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    raft1.add_learner(node_address(3)).await?;
+
     loop {}
+}
+
+fn node_address(id: u64) -> Node {
+    Node {
+        node_id: id,
+        rpc_addr: format!("127.0.0.1:{}", 21000 + id),
+    }
 }
 
 mod key_value_service {
@@ -49,6 +83,7 @@ mod key_value_service {
     use prost::DecodeError;
     use raft_service_rs::ApplicationConfig;
     use raft_service_rs::ApplicationData;
+    use raft_service_rs::Node;
     use raft_service_rs::server::RaftServer;
     use serde::Deserialize;
     use serde::Serialize;
@@ -111,6 +146,18 @@ mod key_value_service {
             let raft_server = RaftServer::new(node_id, addr, path).await?;
 
             Ok(Self { raft_server })
+        }
+
+        pub async fn initialize(&self, members: HashMap<u64, Node>) -> anyhow::Result<()> {
+            self.raft_server.initialize(members).await?;
+
+            Ok(())
+        }
+
+        pub async fn add_learner(&self, node: Node) -> anyhow::Result<()> {
+            self.raft_server.add_learner(node.node_id, node).await?;
+
+            Ok(())
         }
 
         pub async fn run(&self) -> anyhow::Result<()> {

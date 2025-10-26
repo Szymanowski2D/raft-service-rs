@@ -7,6 +7,7 @@ edition = "2024"
 anyhow = "1.0.100"
 byteorder = "1.5.0"
 futures-util = "0.3.31"
+maplit = "1.0.2"
 openraft = { git = "https://github.com/databendlabs/openraft.git", branch = "release-0.10", version = "0.10.0", features = ["serde"] }
 prost = "0.14.1"
 rocksdb = "0.24.0"
@@ -17,6 +18,8 @@ tokio-stream = "0.1.17"
 tokio-util = { version = "0.7.16", features = ["full"] }
 tonic = "0.14.1"
 tonic-prost = "0.14.1"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 
 [build-dependencies]
 tonic-prost-build = "0.14.1"

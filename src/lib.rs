@@ -12,6 +12,8 @@ mod pb {
     tonic::include_proto!("openraftpb");
 }
 
+pub use pb::Node;
+
 #[async_trait]
 pub trait ApplicationData: Default + Send + Sync {
     type Request: Serialize + DeserializeOwned + Send + Sync + 'static;
