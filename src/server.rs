@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::path::Path;
 
+use futures_util::future::join_all;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
 
@@ -59,7 +60,7 @@ impl<C: ApplicationConfig> RaftServer<C> {
             }
         });
 
-        let mut runtime = None;
+        let mut is_active = false;
 
         while !shutdown.is_cancelled() {
             tokio::select! {
@@ -72,27 +73,38 @@ impl<C: ApplicationConfig> RaftServer<C> {
             let is_leader = metrics_rx.borrow().state.is_leader();
 
             if is_leader {
-                if runtime.is_none() {
-                    let mut services = vec![];
+                if is_active {
+                    let futures: Vec<_> = self
+                        .leader_lifetime_services
+                        .iter()
+                        .map(|service| service.on_leader_start())
+                        .collect();
 
-                    for service in &self.leader_lifetime_services {
-                        service.on_leader_start().await?;
-                        services.push(service);
-                    }
+                    join_all(futures).await;
 
-                    runtime = Some(services);
+                    is_active = true;
                 }
-            } else if let Some(runtime) = runtime.take() {
-                for service in runtime {
-                    service.on_leader_stop().await?;
-                }
+            } else if !is_active {
+                let futures: Vec<_> = self
+                    .leader_lifetime_services
+                    .iter()
+                    .map(|service| service.on_leader_stop())
+                    .collect();
+
+                join_all(futures).await;
+
+                is_active = false;
             }
         }
 
-        if let Some(runtime) = runtime.take() {
-            for service in runtime {
-                service.on_leader_stop().await?;
-            }
+        if !is_active {
+            let futures: Vec<_> = self
+                .leader_lifetime_services
+                .iter()
+                .map(|service| service.on_leader_stop())
+                .collect();
+
+            join_all(futures).await;
         }
 
         raft_service_handle.await?;
