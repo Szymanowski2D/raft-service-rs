@@ -65,7 +65,7 @@ mod tests {
             ()
         }
 
-        fn import(_snapshot: &Self::ApplicationSnapshot) -> Result<Self, DecodeError> {
+        fn import(_snapshot: Self::ApplicationSnapshot) -> Result<Self, DecodeError> {
             Ok(MockApplicationData::default())
         }
 
@@ -77,8 +77,9 @@ mod tests {
     #[derive(Default)]
     struct MockApplicationConfig {}
 
+    #[async_trait]
     impl ApplicationConfig for MockApplicationConfig {
-        type ApplicationData = MockApplicationData;
+        type Data = MockApplicationData;
     }
 
     struct RocksStoreBuilder {}
