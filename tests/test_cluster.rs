@@ -63,6 +63,12 @@ async fn test_cluster() -> anyhow::Result<()> {
     tokio::time::sleep(Duration::from_millis(500)).await;
     raft1.add_learner(node_address(3)).await?;
 
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    raft1.add_voter(node_address(2)).await?;
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    raft1.add_voter(node_address(3)).await?;
+
     loop {}
 }
 
@@ -156,6 +162,12 @@ mod key_value_service {
 
         pub async fn add_learner(&self, node: Node) -> anyhow::Result<()> {
             self.raft_server.add_learner(node.node_id, node).await?;
+
+            Ok(())
+        }
+
+        pub async fn add_voter(&self, node: Node) -> anyhow::Result<()> {
+            self.raft_server.add_voter(node).await?;
 
             Ok(())
         }

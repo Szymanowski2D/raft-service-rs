@@ -4,6 +4,8 @@ use std::net::SocketAddr;
 use std::path::Path;
 
 use futures_util::future::join_all;
+use maplit::btreemap;
+use openraft::ChangeMembers;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
 use tracing::trace;
@@ -54,6 +56,19 @@ impl<C: ApplicationConfig> RaftServer<C> {
         Ok(())
     }
 
+    pub async fn add_voter(&self, node: Node) -> anyhow::Result<()> {
+        self.raft
+            .change_membership(
+                ChangeMembers::AddVoters(btreemap! {
+                    node.node_id => node
+                }),
+                false,
+            )
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn register_leader_lifetime_services(
         &mut self,
         service: Box<dyn LeaderLifetimeService>,
@@ -64,7 +79,7 @@ impl<C: ApplicationConfig> RaftServer<C> {
     pub async fn run(&self, shutdown: CancellationToken) -> anyhow::Result<()> {
         trace!(self.node_id, "server is running");
 
-        let mut metrics_rx = self.raft.metrics();
+        let mut metrics_rx = self.raft.server_metrics();
 
         let raft_service_handle = tokio::spawn({
             let raft = self.raft.clone();
@@ -90,13 +105,11 @@ impl<C: ApplicationConfig> RaftServer<C> {
                 _ = metrics_rx.changed() => {}
             }
 
-            let is_leader = {
-                let metrics = metrics_rx.borrow_and_update();
+            let metrics = metrics_rx.borrow_and_update().clone();
 
-                metrics.state.is_leader()
-            };
+            trace!(self.node_id, ?metrics, "Metrics changed");
 
-            if is_leader {
+            if metrics.state.is_leader() {
                 if !is_active {
                     trace!(self.node_id, "Node becomes a leader");
 
