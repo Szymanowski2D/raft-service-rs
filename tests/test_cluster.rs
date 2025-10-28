@@ -90,13 +90,151 @@ mod key_value_service {
     use raft_service_rs::ApplicationConfig;
     use raft_service_rs::ApplicationData;
     use raft_service_rs::Node;
+    use raft_service_rs::server::RaftControlClient;
     use raft_service_rs::server::RaftServer;
     use serde::Deserialize;
     use serde::Serialize;
     use tokio_util::sync::CancellationToken;
     use tonic::async_trait;
 
-    #[derive(Serialize, Deserialize)]
+    use crate::key_value_service::reading_service::ReadingService;
+    use crate::key_value_service::writing_service::WritingService;
+
+    mod writing_service {
+        use std::{
+            sync::{
+                Arc,
+                atomic::{AtomicBool, Ordering},
+            },
+            time::Duration,
+        };
+
+        use raft_service_rs::{LeaderLifetimeService, server::RaftDataClient};
+        use tokio::time::sleep;
+        use tonic::async_trait;
+        use tracing::info;
+
+        use crate::key_value_service::{KeyValueServiceConfig, Request};
+
+        pub struct WritingService {
+            raft_client: RaftDataClient<KeyValueServiceConfig>,
+            working: Arc<AtomicBool>,
+        }
+
+        impl WritingService {
+            pub fn new(raft_client: RaftDataClient<KeyValueServiceConfig>) -> Self {
+                WritingService {
+                    raft_client,
+                    working: Arc::new(AtomicBool::new(false)),
+                }
+            }
+        }
+
+        #[async_trait]
+        impl LeaderLifetimeService for WritingService {
+            fn on_leader_start(&self) -> anyhow::Result<()> {
+                let _handle = tokio::spawn({
+                    let raft_client = self.raft_client.clone();
+                    let working = self.working.clone();
+
+                    self.working.store(true, Ordering::Release);
+
+                    async move {
+                        let mut start = 0;
+
+                        while working.load(Ordering::Acquire) {
+                            let request = Request {
+                                key: start.to_string(),
+                                value: start.to_string(),
+                            };
+
+                            info!(node_id = raft_client.node_id(), ?request);
+
+                            raft_client.write(&request).await?;
+
+                            sleep(Duration::from_secs(1)).await;
+                            start += 1;
+                        }
+
+                        anyhow::Ok(())
+                    }
+                });
+
+                Ok(())
+            }
+
+            fn on_leader_stop(&self) -> anyhow::Result<()> {
+                self.working.store(false, Ordering::Release);
+
+                Ok(())
+            }
+        }
+    }
+
+    mod reading_service {
+        use std::{
+            sync::{
+                Arc,
+                atomic::{AtomicBool, Ordering},
+            },
+            time::Duration,
+        };
+
+        use raft_service_rs::{LeaderLifetimeService, server::RaftDataClient};
+        use tokio::time::sleep;
+        use tonic::async_trait;
+        use tracing::info;
+
+        use crate::key_value_service::KeyValueServiceConfig;
+
+        pub struct ReadingService {
+            raft_client: RaftDataClient<KeyValueServiceConfig>,
+            working: Arc<AtomicBool>,
+        }
+
+        impl ReadingService {
+            pub fn new(raft_client: RaftDataClient<KeyValueServiceConfig>) -> Self {
+                ReadingService {
+                    raft_client,
+                    working: Arc::new(AtomicBool::new(false)),
+                }
+            }
+        }
+
+        #[async_trait]
+        impl LeaderLifetimeService for ReadingService {
+            fn on_leader_start(&self) -> anyhow::Result<()> {
+                let _handle = tokio::spawn({
+                    let raft_client = self.raft_client.clone();
+                    let working = self.working.clone();
+
+                    self.working.store(true, Ordering::Release);
+
+                    async move {
+                        while working.load(Ordering::Acquire) {
+                            let len = raft_client.read_safe(|store| store.map.len()).await?;
+
+                            info!(node_id = raft_client.node_id(), len);
+
+                            sleep(Duration::from_secs(1)).await;
+                        }
+
+                        anyhow::Ok(())
+                    }
+                });
+
+                Ok(())
+            }
+
+            fn on_leader_stop(&self) -> anyhow::Result<()> {
+                self.working.store(false, Ordering::Release);
+
+                Ok(())
+            }
+        }
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
     pub struct Request {
         key: String,
         value: String,
@@ -135,7 +273,7 @@ mod key_value_service {
         }
     }
 
-    #[derive(Default)]
+    #[derive(Clone, Default)]
     pub struct KeyValueServiceConfig;
 
     impl ApplicationConfig for KeyValueServiceConfig {
@@ -143,7 +281,7 @@ mod key_value_service {
     }
 
     pub struct KeyValueService {
-        raft_server: RaftServer<KeyValueServiceConfig>,
+        raft_control_client: RaftControlClient,
     }
 
     impl KeyValueService {
@@ -151,23 +289,41 @@ mod key_value_service {
             let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
             let raft_server = RaftServer::new(node_id, addr, path).await?;
 
-            Ok(Self { raft_server })
+            let (mut raft_control_client, raft_data_client) = raft_server.into_client();
+
+            {
+                let random_writing_service = WritingService::new(raft_data_client.clone());
+
+                raft_control_client.register_leader_lifetime_service(random_writing_service);
+            }
+
+            {
+                let reading_service = ReadingService::new(raft_data_client);
+
+                raft_control_client.register_leader_lifetime_service(reading_service);
+            }
+
+            Ok(Self {
+                raft_control_client,
+            })
         }
 
         pub async fn initialize(&self, members: HashMap<u64, Node>) -> anyhow::Result<()> {
-            self.raft_server.initialize(members).await?;
+            self.raft_control_client.initialize(members).await?;
 
             Ok(())
         }
 
         pub async fn add_learner(&self, node: Node) -> anyhow::Result<()> {
-            self.raft_server.add_learner(node.node_id, node).await?;
+            self.raft_control_client
+                .add_learner(node.node_id, node)
+                .await?;
 
             Ok(())
         }
 
         pub async fn add_voter(&self, node: Node) -> anyhow::Result<()> {
-            self.raft_server.add_voter(node).await?;
+            self.raft_control_client.add_voter(node).await?;
 
             Ok(())
         }
@@ -175,7 +331,7 @@ mod key_value_service {
         pub async fn run(&self) -> anyhow::Result<()> {
             let shutdown = CancellationToken::new();
 
-            self.raft_server.run(shutdown).await
+            self.raft_control_client.run(shutdown).await
         }
     }
 }

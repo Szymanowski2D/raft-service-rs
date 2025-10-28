@@ -37,8 +37,12 @@ pub(crate) type VoteResponse = openraft::raft::VoteResponse<TypeConfig>;
 pub(crate) type AppendEntriesRequest = openraft::raft::AppendEntriesRequest<TypeConfig>;
 pub(crate) type AppendEntriesResponse = openraft::raft::AppendEntriesResponse<TypeConfig>;
 pub(crate) type SnapshotResponse = openraft::raft::SnapshotResponse<TypeConfig>;
+pub(crate) type ClientWriteResponse = openraft::raft::ClientWriteResponse<TypeConfig>;
 
+pub(crate) type RaftError<E> = openraft::error::RaftError<TypeConfig, E>;
 pub(crate) type RPCError = openraft::error::RPCError<TypeConfig>;
 pub(crate) type StreamingError = openraft::error::StreamingError<TypeConfig>;
+pub(crate) type ClientWriteError = openraft::error::ClientWriteError<TypeConfig>;
+pub(crate) type CheckIsLeaderError = openraft::error::CheckIsLeaderError<TypeConfig>;
 
 pub(crate) type EntryPayload = openraft::entry::EntryPayload<TypeConfig>;

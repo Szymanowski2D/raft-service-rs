@@ -21,7 +21,7 @@ use crate::raft::state_machine::snapshot::StoredSnapshot;
 
 #[derive(Default)]
 pub(crate) struct StateMachineStore<C: ApplicationConfig> {
-    pub(super) state_machine: RwLock<StateMachineData<C>>,
+    pub(crate) state_machine: RwLock<StateMachineData<C>>,
     pub(super) snapshot_idx: AtomicU64,
     pub(super) current_snapshot: RwLock<Option<StoredSnapshot>>,
 }

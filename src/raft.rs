@@ -17,7 +17,10 @@ mod log_store;
 mod network;
 mod pb_impl;
 
-pub async fn new_raft<C: ApplicationConfig>(node_id: NodeId, path: &Path) -> anyhow::Result<Raft> {
+pub async fn new_raft<C: ApplicationConfig>(
+    node_id: NodeId,
+    path: &Path,
+) -> anyhow::Result<(Arc<StateMachineStore<C>>, Raft)> {
     let config = Arc::new(
         Config {
             heartbeat_interval: 500,
@@ -32,7 +35,10 @@ pub async fn new_raft<C: ApplicationConfig>(node_id: NodeId, path: &Path) -> any
     let log_store = RocksLogStore::new(path)?;
     let state_machine = Arc::new(StateMachineStore::<C>::default());
 
-    Ok(openraft::Raft::new(node_id, config, network, log_store, state_machine).await?)
+    Ok((
+        state_machine.clone(),
+        openraft::Raft::new(node_id, config, network, log_store, state_machine).await?,
+    ))
 }
 
 #[cfg(test)]
