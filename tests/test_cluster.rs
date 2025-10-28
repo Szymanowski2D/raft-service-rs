@@ -101,20 +101,19 @@ mod key_value_service {
     use crate::key_value_service::writing_service::WritingService;
 
     mod writing_service {
-        use std::{
-            sync::{
-                Arc,
-                atomic::{AtomicBool, Ordering},
-            },
-            time::Duration,
-        };
+        use std::sync::Arc;
+        use std::sync::atomic::AtomicBool;
+        use std::sync::atomic::Ordering;
+        use std::time::Duration;
 
-        use raft_service_rs::{LeaderLifetimeService, server::RaftDataClient};
+        use raft_service_rs::LeaderLifetimeService;
+        use raft_service_rs::server::RaftDataClient;
         use tokio::time::sleep;
         use tonic::async_trait;
         use tracing::info;
 
-        use crate::key_value_service::{KeyValueServiceConfig, Request};
+        use crate::key_value_service::KeyValueServiceConfig;
+        use crate::key_value_service::Request;
 
         pub struct WritingService {
             raft_client: RaftDataClient<KeyValueServiceConfig>,
@@ -172,15 +171,13 @@ mod key_value_service {
     }
 
     mod reading_service {
-        use std::{
-            sync::{
-                Arc,
-                atomic::{AtomicBool, Ordering},
-            },
-            time::Duration,
-        };
+        use std::sync::Arc;
+        use std::sync::atomic::AtomicBool;
+        use std::sync::atomic::Ordering;
+        use std::time::Duration;
 
-        use raft_service_rs::{LeaderLifetimeService, server::RaftDataClient};
+        use raft_service_rs::LeaderLifetimeService;
+        use raft_service_rs::server::RaftDataClient;
         use tokio::time::sleep;
         use tonic::async_trait;
         use tracing::info;

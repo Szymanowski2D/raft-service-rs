@@ -163,7 +163,7 @@ impl RaftControlClient {
             }
         }
 
-        if !is_active {
+        if is_active {
             for service in &self.leader_lifetime_services {
                 service.on_leader_stop()?;
             }
