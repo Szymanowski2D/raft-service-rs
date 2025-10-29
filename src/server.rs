@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 
+use futures_util::future::join_all;
 use maplit::btreemap;
 use openraft::ChangeMembers;
 use tokio_util::sync::CancellationToken;
@@ -12,6 +13,7 @@ use tracing::trace;
 use crate::ApplicationConfig;
 use crate::ApplicationData;
 use crate::LeaderLifetimeService;
+use crate::LeaderLifetimeServiceBuilder;
 use crate::grpc::raft_service::RaftServiceImpl;
 use crate::pb::raft_service_server::RaftServiceServer;
 use crate::raft::config::type_config::CheckIsLeaderError;
@@ -72,16 +74,61 @@ impl<C: ApplicationConfig> RaftDataClient<C> {
     }
 }
 
+struct RaftLeaderLifetimeServiceRuntime {
+    services: Vec<Box<dyn LeaderLifetimeService>>,
+}
+
+impl RaftLeaderLifetimeServiceRuntime {
+    fn new(services: Vec<Box<dyn LeaderLifetimeService>>) -> Self {
+        RaftLeaderLifetimeServiceRuntime { services }
+    }
+
+    async fn start_all(&self) -> anyhow::Result<()> {
+        let mut futures = Vec::with_capacity(self.services.len());
+        for service in &self.services {
+            futures.push(service.start());
+        }
+        let _r = join_all(futures).await;
+
+        Ok(())
+    }
+
+    async fn stop_all(&self) -> anyhow::Result<()> {
+        let mut futures = Vec::with_capacity(self.services.len());
+        for service in &self.services {
+            futures.push(service.stop());
+        }
+        let _r = join_all(futures).await;
+
+        Ok(())
+    }
+}
+
 pub struct RaftControlClient {
     node_id: u64,
     listening: SocketAddr,
     raft: Raft,
-    leader_lifetime_services: Vec<Box<dyn LeaderLifetimeService>>,
+    leader_lifetime_service_builders: Vec<Box<dyn LeaderLifetimeServiceBuilder>>,
 }
 
 impl RaftControlClient {
-    pub fn register_leader_lifetime_service(&mut self, service: impl LeaderLifetimeService) {
-        self.leader_lifetime_services.push(Box::new(service));
+    fn build_leader_lifetime_services(&self) -> anyhow::Result<RaftLeaderLifetimeServiceRuntime> {
+        let runtime = RaftLeaderLifetimeServiceRuntime::new(
+            self.leader_lifetime_service_builders
+                .iter()
+                .map(|builder| builder.build())
+                .collect::<Result<Vec<_>, _>>()?,
+        );
+
+        Ok(runtime)
+    }
+
+    pub fn register_leader_lifetime_service_builder(
+        &mut self,
+        service: impl LeaderLifetimeServiceBuilder,
+    ) {
+        self.leader_lifetime_service_builders
+            .push(Box::new(service));
     }
 
     pub async fn initialize(&self, members: HashMap<NodeId, Node>) -> anyhow::Result<()> {
@@ -128,7 +175,7 @@ impl RaftControlClient {
             }
         });
 
-        let mut is_active = false;
+        let mut runtime = None;
 
         while !shutdown.is_cancelled() {
             tokio::select! {
@@ -143,30 +190,20 @@ impl RaftControlClient {
             trace!(self.node_id, ?metrics, "Metrics changed");
 
             if metrics.state.is_leader() {
-                if !is_active {
+                if runtime.is_none() {
                     trace!(self.node_id, "Node becomes a leader");
 
-                    for service in &self.leader_lifetime_services {
-                        service.on_leader_start()?;
-                    }
-
-                    is_active = true;
+                    let services = self.build_leader_lifetime_services()?;
+                    services.start_all().await?;
+                    runtime = Some(services);
                 }
-            } else if is_active {
-                trace!(self.node_id, "Node is not a leader");
-
-                for service in &self.leader_lifetime_services {
-                    service.on_leader_stop()?;
-                }
-
-                is_active = false;
+            } else if let Some(runtime) = runtime.take() {
+                runtime.stop_all().await?;
             }
         }
 
-        if is_active {
-            for service in &self.leader_lifetime_services {
-                service.on_leader_stop()?;
-            }
+        if let Some(runtime) = runtime.take() {
+            runtime.stop_all().await?;
         }
 
         raft_service_handle.await?;
@@ -180,7 +217,6 @@ pub struct RaftServer<C: ApplicationConfig> {
     listening: SocketAddr,
     state_machine: Arc<StateMachineStore<C>>,
     raft: Raft,
-    leader_lifetime_services: Vec<Box<dyn LeaderLifetimeService>>,
 }
 
 impl<C: ApplicationConfig> RaftServer<C> {
@@ -196,7 +232,6 @@ impl<C: ApplicationConfig> RaftServer<C> {
             listening,
             state_machine,
             raft,
-            leader_lifetime_services: Vec::new(),
         })
     }
 
@@ -206,7 +241,7 @@ impl<C: ApplicationConfig> RaftServer<C> {
                 node_id: self.node_id,
                 listening: self.listening,
                 raft: self.raft.clone(),
-                leader_lifetime_services: self.leader_lifetime_services,
+                leader_lifetime_service_builders: Vec::new(),
             },
             RaftDataClient {
                 node_id: self.node_id,
