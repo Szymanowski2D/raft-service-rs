@@ -1,6 +1,7 @@
 use prost::DecodeError;
 use tonic::async_trait;
 
+pub mod error;
 pub mod server;
 
 pub(crate) mod grpc;
