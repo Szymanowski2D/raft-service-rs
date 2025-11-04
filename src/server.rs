@@ -6,6 +6,7 @@ use std::sync::Arc;
 use futures_util::future::join_all;
 use maplit::btreemap;
 use openraft::ChangeMembers;
+use prost::Message;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
 use tracing::trace;
@@ -42,7 +43,7 @@ impl<C: ApplicationConfig> RaftDataClient<C> {
         &self,
         request: &<C::Data as ApplicationData>::Request,
     ) -> Result<ClientWriteResponse, RaftError<ClientWriteError>> {
-        let buf = serde_json::to_vec(request).unwrap();
+        let buf = request.encode_to_vec();
         self.raft.client_write(buf).await
     }
 

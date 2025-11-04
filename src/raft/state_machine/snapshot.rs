@@ -10,6 +10,7 @@ use crate::raft::config::type_config::StorageError;
 use crate::raft::config::type_config::TypeConfig;
 use crate::raft::state_machine::store::StateMachineStore;
 use openraft::RaftSnapshotBuilder;
+use prost::Message;
 
 pub(super) struct StoredSnapshot {
     pub(super) meta: SnapshotMeta,
@@ -20,8 +21,7 @@ impl<C: ApplicationConfig> RaftSnapshotBuilder<TypeConfig> for Arc<StateMachineS
     async fn build_snapshot(&mut self) -> Result<Snapshot, StorageError> {
         let state_machine = self.state_machine.read().await;
 
-        let data = serde_json::to_vec(&state_machine.application_data.export())
-            .map_err(|e| StorageError::write_snapshot(None, &e))?;
+        let data = state_machine.application_data.export().encode_to_vec();
         let last_applied_log = state_machine.last_applied_log;
         let last_membership = state_machine.last_membership.clone();
 

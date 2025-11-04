@@ -52,7 +52,7 @@ impl<C: ApplicationConfig> RaftStateMachine<TypeConfig> for Arc<StateMachineStor
             state_machine.last_applied_log = Some(log_id);
 
             let result = if let Some(req) = entry.app_data {
-                let req = serde_json::from_slice(req.as_slice())
+                let req = prost::Message::decode(req.as_slice())
                     .map_err(|e| StorageError::apply(log_id, &e))?;
 
                 let response = state_machine.application_data.apply(req).await;
@@ -93,7 +93,7 @@ impl<C: ApplicationConfig> RaftStateMachine<TypeConfig> for Arc<StateMachineStor
 
         // Install state_machine
         {
-            let snapshot = serde_json::from_slice(new_snapshot.data.as_slice()).map_err(|e| {
+            let snapshot = prost::Message::decode(new_snapshot.data.as_slice()).map_err(|e| {
                 StorageError::read_snapshot(Some(new_snapshot.meta.signature()), &e)
             })?;
             let application_data = C::Data::import(snapshot).map_err(|e| {

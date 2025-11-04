@@ -1,6 +1,4 @@
 use prost::DecodeError;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
 use tonic::async_trait;
 
 pub mod server;
@@ -16,9 +14,9 @@ pub use pb::Node;
 
 #[async_trait]
 pub trait ApplicationData: Default + Send + Sync {
-    type Request: Serialize + DeserializeOwned + Send + Sync + 'static;
+    type Request: prost::Message + Default + Send + Sync + 'static;
 
-    type ApplicationSnapshot: Serialize + DeserializeOwned + Send + Sync + 'static;
+    type ApplicationSnapshot: prost::Message + Default + Send + Sync + 'static;
 
     fn export(&self) -> Self::ApplicationSnapshot;
     fn import(snapshot: Self::ApplicationSnapshot) -> Result<Self, DecodeError>;

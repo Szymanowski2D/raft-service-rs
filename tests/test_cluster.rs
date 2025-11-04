@@ -92,8 +92,6 @@ mod key_value_service {
     use raft_service_rs::Node;
     use raft_service_rs::server::RaftControlClient;
     use raft_service_rs::server::RaftServer;
-    use serde::Deserialize;
-    use serde::Serialize;
     use tokio_util::sync::CancellationToken;
     use tonic::async_trait;
 
@@ -255,14 +253,17 @@ mod key_value_service {
         }
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(prost::Message)]
     pub struct Request {
+        #[prost(string, tag = "1")]
         key: String,
+        #[prost(string, tag = "2")]
         value: String,
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(prost::Message)]
     pub struct Snapshot {
+        #[prost(map = "string, string", tag = "1")]
         map: HashMap<String, String>,
     }
 
