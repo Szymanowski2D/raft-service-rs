@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use futures_util::future::join_all;
 use maplit::btreemap;
 use openraft::ChangeMembers;
 use prost::Message;
+use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
 use tracing::trace;
@@ -26,6 +28,13 @@ use crate::raft::config::type_config::Raft;
 use crate::raft::config::type_config::RaftError;
 use crate::raft::new_raft;
 use crate::raft::state_machine::store::StateMachineStore;
+
+#[derive(Debug, Deserialize)]
+pub struct RaftServiceConfig {
+    pub node_id: u64,
+    pub listening: String,
+    pub log_path: PathBuf,
+}
 
 #[derive(Clone)]
 pub struct RaftDataClient<C: ApplicationConfig> {
