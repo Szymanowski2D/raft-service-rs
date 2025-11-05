@@ -220,6 +220,7 @@ impl RaftControlClient {
         }
 
         raft_service_handle.await?;
+        self.raft.shutdown().await?;
 
         Ok(())
     }
