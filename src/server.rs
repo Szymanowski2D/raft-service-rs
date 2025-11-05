@@ -143,6 +143,10 @@ impl RaftControlClient {
             .push(Box::new(service));
     }
 
+    pub async fn is_initialized(&self) -> anyhow::Result<bool> {
+        Ok(self.raft.is_initialized().await?)
+    }
+
     pub async fn initialize(&self, members: HashMap<NodeId, Node>) -> anyhow::Result<()> {
         self.raft.initialize(members).await?;
 
