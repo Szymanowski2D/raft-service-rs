@@ -26,8 +26,8 @@ pub trait ApplicationData: Default + Send + Sync {
 
 #[async_trait]
 pub trait LeaderLifetimeService: Send + Sync + 'static {
-    async fn start(&self) -> anyhow::Result<()>;
-    async fn stop(&self) -> anyhow::Result<()>;
+    async fn start(&self);
+    async fn stop(&self);
 }
 
 pub trait LeaderLifetimeServiceBuilder: Send + Sync + 'static {

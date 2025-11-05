@@ -121,7 +121,7 @@ mod key_value_service {
 
         #[async_trait]
         impl LeaderLifetimeService for WritingService {
-            async fn start(&self) -> anyhow::Result<()> {
+            async fn start(&self) {
                 let _handle = tokio::spawn({
                     let raft_client = self.raft_client.clone();
                     let working = self.working.clone();
@@ -148,14 +148,10 @@ mod key_value_service {
                         anyhow::Ok(())
                     }
                 });
-
-                Ok(())
             }
 
-            async fn stop(&self) -> anyhow::Result<()> {
+            async fn stop(&self) {
                 self.working.store(false, Ordering::Release);
-
-                Ok(())
             }
         }
 
@@ -201,7 +197,7 @@ mod key_value_service {
 
         #[async_trait]
         impl LeaderLifetimeService for ReadingService {
-            async fn start(&self) -> anyhow::Result<()> {
+            async fn start(&self) {
                 let _handle = tokio::spawn({
                     let raft_client = self.raft_client.clone();
                     let working = self.working.clone();
@@ -220,14 +216,10 @@ mod key_value_service {
                         anyhow::Ok(())
                     }
                 });
-
-                Ok(())
             }
 
-            async fn stop(&self) -> anyhow::Result<()> {
+            async fn stop(&self) {
                 self.working.store(false, Ordering::Release);
-
-                Ok(())
             }
         }
 
