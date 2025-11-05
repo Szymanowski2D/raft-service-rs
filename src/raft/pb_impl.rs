@@ -1,5 +1,6 @@
 mod append_entries_request;
 mod append_entries_response;
+mod client_write_response;
 mod entry;
 mod leader_id;
 mod log_id;

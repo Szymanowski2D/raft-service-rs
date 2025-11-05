@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "openraftpb.Entry",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
-        .compile_protos(&["proto/raft.proto"], &["proto"])?;
+        .compile_protos(&["proto/raft.proto", "proto/app.proto"], &["proto"])?;
 
     Ok(())
 }

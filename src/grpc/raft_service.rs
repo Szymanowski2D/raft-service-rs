@@ -12,7 +12,7 @@ use crate::raft::config::type_config::Snapshot;
 use crate::raft::config::type_config::SnapshotMeta;
 use crate::raft::config::type_config::StoredMembership;
 
-pub struct RaftServiceImpl {
+pub(crate) struct RaftServiceImpl {
     raft_node: Raft,
 }
 

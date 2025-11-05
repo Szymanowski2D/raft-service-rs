@@ -17,7 +17,9 @@ use crate::ApplicationConfig;
 use crate::ApplicationData;
 use crate::LeaderLifetimeService;
 use crate::LeaderLifetimeServiceBuilder;
+use crate::grpc::app_service::AppServiceImpl;
 use crate::grpc::raft_service::RaftServiceImpl;
+use crate::pb::app_service_server::AppServiceServer;
 use crate::pb::raft_service_server::RaftServiceServer;
 use crate::raft::config::type_config::CheckIsLeaderError;
 use crate::raft::config::type_config::ClientWriteError;
@@ -178,7 +180,8 @@ impl RaftControlClient {
 
             async move {
                 Server::builder()
-                    .add_service(RaftServiceServer::new(RaftServiceImpl::new(raft)))
+                    .add_service(RaftServiceServer::new(RaftServiceImpl::new(raft.clone())))
+                    .add_service(AppServiceServer::new(AppServiceImpl::new(raft)))
                     .serve_with_shutdown(addr, shutdown.cancelled())
                     .await
                     .unwrap()
