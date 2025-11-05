@@ -127,7 +127,7 @@ impl RaftControlClient {
             self.leader_lifetime_service_builders
                 .iter()
                 .map(|builder| builder.build())
-                .collect::<Result<Vec<_>, _>>()?,
+                .collect(),
         );
 
         Ok(runtime)

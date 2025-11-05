@@ -166,11 +166,11 @@ mod key_value_service {
         }
 
         impl LeaderLifetimeServiceBuilder for WritingServiceBuilder {
-            fn build(&self) -> anyhow::Result<Box<dyn LeaderLifetimeService>> {
-                Ok(Box::new(WritingService {
+            fn build(&self) -> Box<dyn LeaderLifetimeService> {
+                Box::new(WritingService {
                     raft_client: self.raft_client.clone(),
                     working: AtomicBool::new(false).into(),
-                }))
+                })
             }
         }
     }
@@ -236,11 +236,11 @@ mod key_value_service {
         }
 
         impl LeaderLifetimeServiceBuilder for ReadingServiceBuilder {
-            fn build(&self) -> anyhow::Result<Box<dyn LeaderLifetimeService>> {
-                Ok(Box::new(ReadingService {
+            fn build(&self) -> Box<dyn LeaderLifetimeService> {
+                Box::new(ReadingService {
                     raft_client: self.raft_client.clone(),
                     working: AtomicBool::new(false).into(),
-                }))
+                })
             }
         }
     }

@@ -31,7 +31,7 @@ pub trait LeaderLifetimeService: Send + Sync + 'static {
 }
 
 pub trait LeaderLifetimeServiceBuilder: Send + Sync + 'static {
-    fn build(&self) -> anyhow::Result<Box<dyn LeaderLifetimeService>>;
+    fn build(&self) -> Box<dyn LeaderLifetimeService>;
 }
 
 pub trait ApplicationConfig: Default + Send + Sync + 'static {
