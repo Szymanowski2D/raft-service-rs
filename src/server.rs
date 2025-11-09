@@ -4,11 +4,11 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use futures_util::future::join_all;
 use maplit::btreemap;
 use openraft::ChangeMembers;
 use prost::Message;
 use serde::Deserialize;
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
 use tracing::trace;
@@ -87,32 +87,36 @@ impl<C: ApplicationConfig> RaftDataClient<C> {
 }
 
 struct RaftLeaderLifetimeServiceRuntime {
+    cancel_token: CancellationToken,
     services: Vec<Box<dyn LeaderLifetimeService>>,
+    handles: Vec<JoinHandle<()>>,
 }
 
 impl RaftLeaderLifetimeServiceRuntime {
     fn new(services: Vec<Box<dyn LeaderLifetimeService>>) -> Self {
-        RaftLeaderLifetimeServiceRuntime { services }
+        RaftLeaderLifetimeServiceRuntime {
+            cancel_token: CancellationToken::new(),
+            services,
+            handles: Vec::new(),
+        }
     }
 
-    async fn start_all(&self) -> anyhow::Result<()> {
-        let mut futures = Vec::with_capacity(self.services.len());
-        for service in &self.services {
-            futures.push(service.start());
+    fn run_all(&mut self) {
+        let services = std::mem::take(&mut self.services);
+        for service in services {
+            let cancel = self.cancel_token.clone();
+            self.handles
+                .push(tokio::spawn(async move { service.run(cancel).await }));
         }
-        let _r = join_all(futures).await;
-
-        Ok(())
     }
 
-    async fn stop_all(&self) -> anyhow::Result<()> {
-        let mut futures = Vec::with_capacity(self.services.len());
-        for service in &self.services {
-            futures.push(service.stop());
-        }
-        let _r = join_all(futures).await;
+    async fn stop_all(&mut self) {
+        self.cancel_token.cancel();
 
-        Ok(())
+        let handles = std::mem::take(&mut self.handles);
+        for handle in handles {
+            let _ = handle.await;
+        }
     }
 }
 
@@ -210,17 +214,17 @@ impl RaftControlClient {
                 if runtime.is_none() {
                     trace!(self.node_id, "Node becomes a leader");
 
-                    let services = self.build_leader_lifetime_services()?;
-                    services.start_all().await?;
+                    let mut services = self.build_leader_lifetime_services()?;
+                    services.run_all();
                     runtime = Some(services);
                 }
-            } else if let Some(runtime) = runtime.take() {
-                runtime.stop_all().await?;
+            } else if let Some(mut runtime) = runtime.take() {
+                runtime.stop_all().await;
             }
         }
 
-        if let Some(runtime) = runtime.take() {
-            runtime.stop_all().await?;
+        if let Some(mut runtime) = runtime.take() {
+            runtime.stop_all().await;
         }
 
         raft_service_handle.await?;

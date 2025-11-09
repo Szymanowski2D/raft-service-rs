@@ -1,4 +1,5 @@
 use prost::DecodeError;
+use tokio_util::sync::CancellationToken;
 use tonic::async_trait;
 
 pub mod error;
@@ -26,8 +27,7 @@ pub trait ApplicationData: Default + Send + Sync {
 
 #[async_trait]
 pub trait LeaderLifetimeService: Send + Sync + 'static {
-    async fn start(&self);
-    async fn stop(&self);
+    async fn run(&self, cancel: CancellationToken);
 }
 
 pub trait LeaderLifetimeServiceBuilder: Send + Sync + 'static {
