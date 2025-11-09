@@ -299,6 +299,7 @@ mod service {
         async fn new(
             _config: Self::Config,
             raft_client: RaftDataClient<Self::C>,
+            _shutdown: CancellationToken,
         ) -> anyhow::Result<Self> {
             Ok(KeyValueService {
                 writing_service_builder: WritingServiceBuilder::new(raft_client.clone()),

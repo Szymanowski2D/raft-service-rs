@@ -21,7 +21,7 @@ use crate::raft::config::type_config::RaftError;
 use crate::raft::new_raft;
 use crate::raft::state_machine::store::StateMachineStore;
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RaftServiceConfig {
     pub node_id: u64,
     pub rpc_url: String,

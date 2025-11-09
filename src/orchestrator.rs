@@ -70,7 +70,8 @@ where
 
         // Raft leader status changing
         {
-            let mut application = A::new(self.application_config, data_client).await?;
+            let mut application =
+                A::new(self.application_config, data_client, shutdown_token.clone()).await?;
 
             join_set.spawn({
                 let shutdown_token = shutdown_token.clone();
@@ -78,7 +79,7 @@ where
                 async move {
                     let mut metrics_rx = metrics_rx;
 
-                    let mut leader_lifetime = None;
+                    let mut stop_token = None;
 
                     while !shutdown_token.is_cancelled() {
                         tokio::select! {
@@ -93,20 +94,20 @@ where
                         debug!(metrics.id, ?metrics, "Metrics changed");
 
                         if metrics.state.is_leader() {
-                            if leader_lifetime.is_none() {
+                            if stop_token.is_none() {
                                 debug!(metrics.id, "Node becomes a leader");
 
                                 let token = CancellationToken::new();
                                 application.start(token.clone()).await?;
-                                leader_lifetime = Some(token);
+                                stop_token = Some(token);
                             }
-                        } else if let Some(token) = leader_lifetime.take() {
+                        } else if let Some(token) = stop_token.take() {
                             token.cancel();
                             application.wait_to_stop().await?;
                         }
                     }
 
-                    if let Some(token) = leader_lifetime.take() {
+                    if let Some(token) = stop_token.take() {
                         token.cancel();
                         application.wait_to_stop().await?;
                     }

@@ -24,9 +24,13 @@ pub trait ApplicationLayer: Sized + Send + Sync + 'static {
     type C: ApplicationConfig;
     type Config;
 
-    async fn new(config: Self::Config, sm: RaftDataClient<Self::C>) -> anyhow::Result<Self>;
+    async fn new(
+        config: Self::Config,
+        sm: RaftDataClient<Self::C>,
+        shutdown: CancellationToken,
+    ) -> anyhow::Result<Self>;
 
-    async fn start(&mut self, cancel: CancellationToken) -> anyhow::Result<()>;
+    async fn start(&mut self, stop: CancellationToken) -> anyhow::Result<()>;
 
     async fn wait_to_stop(&mut self) -> anyhow::Result<()>;
 
