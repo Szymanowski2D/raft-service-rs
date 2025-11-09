@@ -35,7 +35,7 @@ impl RaftService for RaftServiceImpl {
         Ok(Response::new(response.into()))
     }
 
-    /// AppendEntries handles call related to append entries RPC
+    /// `AppendEntries` handles call related to append entries RPC
     async fn append_entries(
         &self,
         request: Request<AppendEntriesRequest>,
