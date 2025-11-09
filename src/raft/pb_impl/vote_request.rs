@@ -1,4 +1,4 @@
-use crate::pb::VoteRequest as PbVoteRequest;
+use crate::pb::internal::VoteRequest as PbVoteRequest;
 use crate::raft::config::type_config::VoteRequest;
 
 impl From<VoteRequest> for PbVoteRequest {

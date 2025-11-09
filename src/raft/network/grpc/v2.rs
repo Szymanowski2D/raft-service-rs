@@ -9,10 +9,10 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::Request;
 use tonic::transport::Channel;
 
-use crate::pb::SnapshotRequest;
-use crate::pb::SnapshotRequestMeta;
-use crate::pb::raft_service_client::RaftServiceClient;
-use crate::pb::snapshot_request::Payload;
+use crate::pb::internal::SnapshotRequest;
+use crate::pb::internal::SnapshotRequestMeta;
+use crate::pb::internal::raft_service_client::RaftServiceClient;
+use crate::pb::internal::snapshot_request::Payload;
 use crate::raft::config::type_config::AppendEntriesRequest;
 use crate::raft::config::type_config::AppendEntriesResponse;
 use crate::raft::config::type_config::Node;

@@ -2,20 +2,20 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
-import "raft.proto";
+import "common.proto";
 
-package openraftpb;
+package controller;
 
 // InitRequest contains the initial set of nodes for cluster initialization
 message InitRequest {
   // List of initial cluster nodes
-  repeated Node nodes = 1;
+  repeated common.Node nodes = 1;
 }
 
 // AddLearnerRequest specifies parameters for adding a learner node
 message AddLearnerRequest {
   // Node to be added as a learner
-  Node node = 1;
+  common.Node node = 1;
 }
 
 // ChangeMembershipRequest specifies parameters for modifying cluster membership
@@ -28,15 +28,15 @@ message ChangeMembershipRequest {
 
 message ClientWriteResponse {
   // The log id of the committed log entry.
-  LogId log_id = 1;
+  common.LogId log_id = 1;
 
   // change-membership entry.
-  Membership membership = 2;
+  common.Membership membership = 2;
 }
 
 message MetricsResponse {
   // Cluster membership config
-  Membership membership = 1;
+  common.Membership membership = 1;
 
   // In this example, only membership is used.
   // Other metrics are just encoded in string for simplicity.
@@ -44,7 +44,7 @@ message MetricsResponse {
   string other_metrics = 2;
 }
 
-service AppService {
+service RaftControllerService {
   // Init initializes a new Raft cluster with the given nodes
   rpc Init(InitRequest) returns (google.protobuf.Empty) {}
 

@@ -1,4 +1,4 @@
-use crate::pb::LogId as PbLogId;
+use crate::pb::common::LogId as PbLogId;
 use crate::raft::config::type_config::LogId;
 
 impl From<LogId> for PbLogId {

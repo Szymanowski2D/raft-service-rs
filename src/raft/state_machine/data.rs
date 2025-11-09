@@ -1,4 +1,4 @@
-use crate::ApplicationConfig;
+use crate::application::ApplicationConfig;
 use crate::raft::config::type_config::LogId;
 use crate::raft::config::type_config::StoredMembership;
 

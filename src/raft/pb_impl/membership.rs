@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use crate::pb::Membership as PbMembership;
-use crate::pb::NodeIdSet;
+use crate::pb::common::Membership as PbMembership;
+use crate::pb::common::NodeIdSet;
 use crate::raft::config::type_config::Membership;
 
 impl From<PbMembership> for Membership {

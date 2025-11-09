@@ -1,9 +1,9 @@
-use crate::pb::SnapshotRequest;
-use crate::pb::snapshot_request::Payload;
+use crate::pb::internal::SnapshotRequest;
+use crate::pb::internal::snapshot_request::Payload;
 use crate::pb::{self};
 
 impl SnapshotRequest {
-    pub(crate) fn into_meta(self) -> Option<pb::SnapshotRequestMeta> {
+    pub(crate) fn into_meta(self) -> Option<pb::internal::SnapshotRequestMeta> {
         let p = self.payload?;
         match p {
             Payload::Meta(meta) => Some(meta),

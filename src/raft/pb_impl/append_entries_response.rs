@@ -1,4 +1,4 @@
-use crate::pb::AppendEntriesResponse as PbAppendEntriesResponse;
+use crate::pb::internal::AppendEntriesResponse as PbAppendEntriesResponse;
 use crate::raft::config::type_config::AppendEntriesResponse;
 
 impl From<PbAppendEntriesResponse> for AppendEntriesResponse {

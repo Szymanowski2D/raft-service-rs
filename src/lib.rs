@@ -1,39 +1,24 @@
-use prost::DecodeError;
-use tokio_util::sync::CancellationToken;
-use tonic::async_trait;
-
+pub mod application;
 pub mod error;
+pub mod orchestrator;
 pub mod server;
 
 pub(crate) mod grpc;
 pub(crate) mod raft;
 
-mod pb {
-    tonic::include_proto!("openraftpb");
+pub mod pb {
+    pub mod controller {
+        tonic::include_proto!("controller");
+    }
+
+    pub(crate) mod common {
+        tonic::include_proto!("common");
+    }
+
+    pub(crate) mod internal {
+        tonic::include_proto!("internal");
+    }
 }
 
-pub use pb::Node;
-
-#[async_trait]
-pub trait ApplicationData: Default + Send + Sync {
-    type Request: prost::Message + Default + Send + Sync + 'static;
-
-    type ApplicationSnapshot: prost::Message + Default + Send + Sync + 'static;
-
-    fn export(&self) -> Self::ApplicationSnapshot;
-    fn import(snapshot: Self::ApplicationSnapshot) -> Result<Self, DecodeError>;
-    async fn apply(&mut self, request: Self::Request) -> anyhow::Result<bool>;
-}
-
-#[async_trait]
-pub trait LeaderLifetimeService: Send + Sync + 'static {
-    async fn run(&self, cancel: CancellationToken);
-}
-
-pub trait LeaderLifetimeServiceBuilder: Send + Sync + 'static {
-    fn build(&self) -> Box<dyn LeaderLifetimeService>;
-}
-
-pub trait ApplicationConfig: Default + Send + Sync + 'static {
-    type Data: ApplicationData;
-}
+pub use pb::common::Node;
+pub use pb::controller;

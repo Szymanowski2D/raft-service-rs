@@ -6,8 +6,8 @@ use openraft::entry::RaftEntry;
 use openraft::storage::RaftStateMachine;
 use tokio::sync::RwLock;
 
-use crate::ApplicationConfig;
-use crate::ApplicationData;
+use crate::application::ApplicationConfig;
+use crate::application::ApplicationData;
 use crate::raft::config::type_config::Entry;
 use crate::raft::config::type_config::LogId;
 use crate::raft::config::type_config::Snapshot;

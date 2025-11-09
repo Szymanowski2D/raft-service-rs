@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-use crate::ApplicationConfig;
-use crate::ApplicationData;
+use crate::application::ApplicationConfig;
+use crate::application::ApplicationData;
 use crate::raft::config::type_config::Snapshot;
 use crate::raft::config::type_config::SnapshotData;
 use crate::raft::config::type_config::SnapshotMeta;

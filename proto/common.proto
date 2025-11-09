@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package common;
+
+// Node represents a single node in the Raft cluster
+message Node {
+  // Unique identifier for the node
+  uint64 node_id = 1;
+  // RPC address for node communication
+  string rpc_addr = 2;
+}
+
+// NodeIds is a set of NodeIds
+message NodeIdSet {
+  map<uint64, google.protobuf.Empty> node_ids = 1;
+}
+
+// Membership config
+message Membership {
+  // Joint(includes more than one NodeIdSet) or uniform(one NodeIdSet) config.
+  repeated NodeIdSet configs = 1;
+
+  // All of the nodes in the cluster, including voters and learners.
+  // A node id that is included in `configs` is a voter, otherwise it is a learner.
+  map<uint64, Node> nodes = 2;
+}
+
+// LogId represents the log identifier in Raft
+message LogId {
+  uint64 term = 1;
+  uint64 index = 2;
+}

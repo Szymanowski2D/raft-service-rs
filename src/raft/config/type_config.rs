@@ -8,10 +8,10 @@ openraft::declare_raft_types!(
     pub TypeConfig:
         D                = Vec<u8>,
         R                = bool,
-        Node             = pb::Node,
-        LeaderId         = pb::LeaderId,
-        Vote             = pb::Vote,
-        Entry            = pb::Entry,
+        Node             = pb::common::Node,
+        LeaderId         = pb::internal::LeaderId,
+        Vote             = pb::internal::Vote,
+        Entry            = pb::internal::Entry,
         SnapshotData     = Vec<u8>,
 );
 

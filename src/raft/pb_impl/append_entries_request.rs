@@ -1,4 +1,4 @@
-use crate::pb::AppendEntriesRequest as PbAppendEntriesRequest;
+use crate::pb::internal::AppendEntriesRequest as PbAppendEntriesRequest;
 use crate::raft::config::type_config::AppendEntriesRequest;
 
 impl From<AppendEntriesRequest> for PbAppendEntriesRequest {

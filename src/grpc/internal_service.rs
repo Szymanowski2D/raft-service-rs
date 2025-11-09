@@ -5,8 +5,8 @@ use tonic::Status;
 use tonic::Streaming;
 use tonic::async_trait;
 
-use crate::pb::raft_service_server::RaftService;
-use crate::pb::*;
+use crate::pb::internal::raft_service_server::RaftService;
+use crate::pb::internal::*;
 use crate::raft::config::type_config::Raft;
 use crate::raft::config::type_config::Snapshot;
 use crate::raft::config::type_config::SnapshotMeta;

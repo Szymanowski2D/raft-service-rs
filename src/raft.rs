@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use openraft::Config;
 
-use crate::ApplicationConfig;
+use crate::application::ApplicationConfig;
 use crate::raft::config::type_config::NodeId;
 use crate::raft::config::type_config::Raft;
 use crate::raft::log_store::rocksdb::RocksLogStore;
@@ -51,8 +51,8 @@ mod tests {
     use tempfile::TempDir;
     use tonic::async_trait;
 
-    use crate::ApplicationConfig;
-    use crate::ApplicationData;
+    use crate::application::ApplicationConfig;
+    use crate::application::ApplicationData;
     use crate::raft::RocksLogStore;
     use crate::raft::config::type_config::StorageError;
     use crate::raft::config::type_config::TypeConfig;

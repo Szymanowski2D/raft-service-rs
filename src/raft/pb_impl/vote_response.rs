@@ -1,4 +1,4 @@
-use crate::pb::VoteResponse as PbVoteResponse;
+use crate::pb::internal::VoteResponse as PbVoteResponse;
 use crate::raft::config::type_config::VoteResponse;
 
 impl From<PbVoteResponse> for VoteResponse {

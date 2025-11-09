@@ -3,7 +3,7 @@ use std::fmt::Display;
 use openraft::entry::RaftEntry;
 use openraft::entry::RaftPayload;
 
-use crate::pb::Entry;
+use crate::pb::internal::Entry;
 use crate::raft::config::type_config::CommittedLeaderId;
 use crate::raft::config::type_config::EntryPayload;
 use crate::raft::config::type_config::LogId;

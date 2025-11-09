@@ -1,4 +1,4 @@
-use crate::pb::ClientWriteResponse as PbClientWriteResponse;
+use crate::pb::controller::ClientWriteResponse as PbClientWriteResponse;
 use crate::raft::config::type_config::ClientWriteResponse;
 
 impl From<ClientWriteResponse> for PbClientWriteResponse {

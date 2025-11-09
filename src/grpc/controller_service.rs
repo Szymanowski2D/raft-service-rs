@@ -6,23 +6,24 @@ use tonic::Status;
 use tonic::async_trait;
 use tracing::debug;
 
-use crate::pb::app_service_server::AppService;
+use crate::pb::controller::InitRequest;
+use crate::pb::controller::raft_controller_service_server::RaftControllerService;
 use crate::pb::{self};
 use crate::raft::config::type_config::Node;
 use crate::raft::config::type_config::Raft;
 
-pub(crate) struct AppServiceImpl {
+pub(crate) struct RaftControllerServiceImpl {
     raft_node: Raft,
 }
 
-impl AppServiceImpl {
+impl RaftControllerServiceImpl {
     pub(crate) fn new(raft_node: Raft) -> Self {
-        AppServiceImpl { raft_node }
+        RaftControllerServiceImpl { raft_node }
     }
 }
 
 #[async_trait]
-impl AppService for AppServiceImpl {
+impl RaftControllerService for RaftControllerServiceImpl {
     /// Initializes a new Raft cluster with the specified nodes
     ///
     /// # Arguments
@@ -31,12 +32,12 @@ impl AppService for AppServiceImpl {
     /// # Returns
     /// * Success response with initialization details
     /// * Error if initialization fails
-    async fn init(&self, request: Request<pb::InitRequest>) -> Result<Response<()>, Status> {
+    async fn init(&self, request: Request<InitRequest>) -> Result<Response<()>, Status> {
         debug!("Initializing Raft cluster");
         let req = request.into_inner();
 
         // Convert nodes into required format
-        let nodes_map: BTreeMap<u64, pb::Node> = req
+        let nodes_map: BTreeMap<u64, pb::common::Node> = req
             .nodes
             .into_iter()
             .map(|node| (node.node_id, node))
@@ -63,8 +64,8 @@ impl AppService for AppServiceImpl {
     /// * Error if the operation fails
     async fn add_learner(
         &self,
-        request: Request<pb::AddLearnerRequest>,
-    ) -> Result<Response<pb::ClientWriteResponse>, Status> {
+        request: Request<pb::controller::AddLearnerRequest>,
+    ) -> Result<Response<pb::controller::ClientWriteResponse>, Status> {
         let req = request.into_inner();
 
         let node = req
@@ -98,8 +99,8 @@ impl AppService for AppServiceImpl {
     /// * Error if the operation fails
     async fn change_membership(
         &self,
-        request: Request<pb::ChangeMembershipRequest>,
-    ) -> Result<Response<pb::ClientWriteResponse>, Status> {
+        request: Request<pb::controller::ChangeMembershipRequest>,
+    ) -> Result<Response<pb::controller::ClientWriteResponse>, Status> {
         let req = request.into_inner();
 
         debug!(
@@ -121,10 +122,10 @@ impl AppService for AppServiceImpl {
     async fn metrics(
         &self,
         _request: Request<()>,
-    ) -> Result<Response<pb::MetricsResponse>, Status> {
+    ) -> Result<Response<pb::controller::MetricsResponse>, Status> {
         debug!("Collecting metrics");
         let metrics = self.raft_node.metrics().borrow().clone();
-        let resp = pb::MetricsResponse {
+        let resp = pb::controller::MetricsResponse {
             membership: Some(metrics.membership_config.membership().clone().into()),
             other_metrics: metrics.to_string(),
         };

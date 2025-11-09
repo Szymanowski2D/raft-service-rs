@@ -2,7 +2,7 @@ use std::fmt;
 
 use openraft::vote::RaftLeaderId;
 
-use crate::pb::LeaderId;
+use crate::pb::internal::LeaderId;
 use crate::raft::config::type_config::NodeId;
 use crate::raft::config::type_config::Term;
 use crate::raft::config::type_config::TypeConfig;
