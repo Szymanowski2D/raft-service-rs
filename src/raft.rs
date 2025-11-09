@@ -67,9 +67,7 @@ mod tests {
 
         type ApplicationSnapshot = ();
 
-        fn export(&self) -> Self::ApplicationSnapshot {
-            ()
-        }
+        fn export(&self) -> Self::ApplicationSnapshot {}
 
         fn import(_snapshot: Self::ApplicationSnapshot) -> Result<Self, DecodeError> {
             Ok(MockApplicationData::default())

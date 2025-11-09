@@ -69,7 +69,9 @@ async fn test_cluster() -> anyhow::Result<()> {
     tokio::time::sleep(Duration::from_millis(500)).await;
     raft1.add_voter(node_address(3)).await?;
 
-    loop {}
+    tokio::time::sleep(Duration::from_secs(60)).await;
+
+    Ok(())
 }
 
 fn node_address(id: u64) -> Node {
