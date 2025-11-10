@@ -1,13 +1,9 @@
 use anyhow::Context;
-use tokio::select;
-use tokio::signal::unix::SignalKind;
-use tokio::signal::unix::signal;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Server;
 use tracing::debug;
 use tracing::error;
-use tracing::info;
 
 use crate::application::ApplicationLayer;
 use crate::grpc::controller_service::RaftControllerServiceImpl;
@@ -21,6 +17,7 @@ pub struct RaftOrchestrator<A: ApplicationLayer> {
     application_config: A::Config,
     raft_config: RaftServiceConfig,
     raft_server: RaftServer<A::C>,
+    shutdown: CancellationToken,
 }
 
 impl<A> RaftOrchestrator<A>
@@ -30,6 +27,7 @@ where
     pub async fn new(
         raft_config: RaftServiceConfig,
         application_config: A::Config,
+        shutdown: CancellationToken,
     ) -> anyhow::Result<Self> {
         let raft_server = RaftServer::new_from_config(&raft_config)
             .await
@@ -39,6 +37,7 @@ where
             application_config,
             raft_config,
             raft_server,
+            shutdown,
         })
     }
 
@@ -46,7 +45,7 @@ where
         let data_client = self.raft_server.data_client();
         let raft = self.raft_server.raft;
 
-        let shutdown_token = CancellationToken::new();
+        let shutdown_token = self.shutdown;
 
         let mut join_set = JoinSet::new();
 
@@ -118,29 +117,6 @@ where
                 }
             });
         }
-
-        // Listening for shutdown
-        join_set.spawn({
-            let shutdown_token = shutdown_token.clone();
-            async move {
-                let mut sigterm = signal(SignalKind::terminate()).unwrap();
-                let mut sigint = signal(SignalKind::interrupt()).unwrap();
-
-                select! {
-                    _ = shutdown_token.cancelled() => info!("Receive shutdown token cancelled"),
-                    _ = sigterm.recv() => {
-                        info!("Recieve SIGTERM");
-                        shutdown_token.cancel();
-                    },
-                    _ = sigint.recv() => {
-                        info!("Recieve SIGINT");
-                        shutdown_token.cancel();
-                    },
-                };
-
-                Ok(())
-            }
-        });
 
         shutdown_token.cancelled().await;
         while let Some(res) = join_set.join_next().await {

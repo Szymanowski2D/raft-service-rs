@@ -5,6 +5,7 @@ use raft_service_rs::controller::ChangeMembershipRequest;
 use raft_service_rs::pb::controller::InitRequest;
 use raft_service_rs::pb::controller::raft_controller_service_client::RaftControllerServiceClient;
 use tempfile::TempDir;
+use tokio_util::sync::CancellationToken;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -37,9 +38,20 @@ async fn main() -> anyhow::Result<()> {
         Application::new(3, node_address(3).rpc_addr, tmp.path().to_path_buf()).await?
     };
 
-    let _h1 = tokio::spawn(async move { raft1.run().await });
-    let _h2 = tokio::spawn(async move { raft2.run().await });
-    let _h3 = tokio::spawn(async move { raft3.run().await });
+    let shutdown = CancellationToken::new();
+
+    let _h1 = tokio::spawn({
+        let shutdown = shutdown.clone();
+        async move { raft1.run(shutdown).await }
+    });
+    let _h2 = tokio::spawn({
+        let shutdown = shutdown.clone();
+        async move { raft2.run(shutdown).await }
+    });
+    let _h3 = tokio::spawn({
+        let shutdown = shutdown.clone();
+        async move { raft3.run(shutdown).await }
+    });
 
     // Wait for server to start up.
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -84,7 +96,7 @@ async fn main() -> anyhow::Result<()> {
     info!(?response);
     tokio::time::sleep(Duration::from_millis(500)).await;
 
-    tokio::time::sleep(Duration::from_secs(60)).await;
+    shutdown.cancelled().await;
 
     Ok(())
 }
@@ -359,9 +371,9 @@ mod service {
             Ok(Self { raft_config })
         }
 
-        pub async fn run(self) -> anyhow::Result<()> {
+        pub async fn run(self, shutdown: CancellationToken) -> anyhow::Result<()> {
             let orchestrator =
-                RaftOrchestrator::<KeyValueService>::new(self.raft_config, ()).await?;
+                RaftOrchestrator::<KeyValueService>::new(self.raft_config, (), shutdown).await?;
 
             orchestrator.run().await?;
 
