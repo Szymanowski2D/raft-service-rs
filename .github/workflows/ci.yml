@@ -1,4 +1,4 @@
-name: Build
+name: CI
 
 on:
   push:
@@ -32,10 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: protobuf-compiler
-          version: 1.0
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
       - name: Install Rust ${{ env.RUST_STABLE }}
         uses: actions-rs/toolchain@v1
         with:
@@ -49,10 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: protobuf-compiler
-          version: 1.0
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
       - name: Install Rust ${{ env.RUST_NIGHTLY }}
         uses: actions-rs/toolchain@v1
         with:
@@ -67,10 +63,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: protobuf-compiler
-          version: 1.0
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
       - name: Install Rust ${{ env.RUST_STABLE }}
         uses: actions-rs/toolchain@v1
         with:
@@ -86,10 +80,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: protobuf-compiler
-          version: 1.0
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
       - name: Install Rust ${{ env.RUST_NIGHTLY }}
         uses: actions-rs/toolchain@v1
         with:
@@ -108,10 +100,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: protobuf-compiler
-          version: 1.0
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
       - name: Install Rust ${{ env.RUST_STABLE }}
         uses: actions-rs/toolchain@v1
         with:
