@@ -373,9 +373,9 @@ mod service {
 
         pub async fn run(self, shutdown: CancellationToken) -> anyhow::Result<()> {
             let orchestrator =
-                RaftOrchestrator::<KeyValueService>::new(self.raft_config, (), shutdown).await?;
+                RaftOrchestrator::<KeyValueService>::new(self.raft_config, ()).await?;
 
-            orchestrator.run().await?;
+            orchestrator.run(shutdown).await?;
 
             Ok(())
         }

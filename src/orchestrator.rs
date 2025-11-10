@@ -17,7 +17,6 @@ pub struct RaftOrchestrator<A: ApplicationLayer> {
     application_config: A::Config,
     raft_config: RaftServiceConfig,
     raft_server: RaftServer<A::C>,
-    shutdown: CancellationToken,
 }
 
 impl<A> RaftOrchestrator<A>
@@ -27,7 +26,6 @@ where
     pub async fn new(
         raft_config: RaftServiceConfig,
         application_config: A::Config,
-        shutdown: CancellationToken,
     ) -> anyhow::Result<Self> {
         let raft_server = RaftServer::new_from_config(&raft_config)
             .await
@@ -37,15 +35,12 @@ where
             application_config,
             raft_config,
             raft_server,
-            shutdown,
         })
     }
 
-    pub async fn run(self) -> anyhow::Result<()> {
+    pub async fn run(self, shutdown_token: CancellationToken) -> anyhow::Result<()> {
         let data_client = self.raft_server.data_client();
         let raft = self.raft_server.raft;
-
-        let shutdown_token = self.shutdown;
 
         let mut join_set = JoinSet::new();
 
