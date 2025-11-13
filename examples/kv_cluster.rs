@@ -320,7 +320,7 @@ mod service {
             })
         }
 
-        async fn start(&mut self, cancel: CancellationToken) -> anyhow::Result<()> {
+        async fn leader_lifetime_start(&mut self, cancel: CancellationToken) -> anyhow::Result<()> {
             let mut join_set = JoinSet::new();
 
             {
@@ -343,7 +343,7 @@ mod service {
             Ok(())
         }
 
-        async fn wait_to_stop(&mut self) -> anyhow::Result<()> {
+        async fn leader_lifetime_stop(&mut self) -> anyhow::Result<()> {
             if let Some(join_set) = self.join_set.take() {
                 join_set.join_all().await;
             }

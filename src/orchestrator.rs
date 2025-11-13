@@ -92,18 +92,18 @@ where
                                 debug!(metrics.id, "Node becomes a leader");
 
                                 let token = CancellationToken::new();
-                                application.start(token.clone()).await?;
+                                application.leader_lifetime_start(token.clone()).await?;
                                 stop_token = Some(token);
                             }
                         } else if let Some(token) = stop_token.take() {
                             token.cancel();
-                            application.wait_to_stop().await?;
+                            application.leader_lifetime_stop().await?;
                         }
                     }
 
                     if let Some(token) = stop_token.take() {
                         token.cancel();
-                        application.wait_to_stop().await?;
+                        application.leader_lifetime_stop().await?;
                     }
 
                     application.shutdown().await?;
