@@ -112,7 +112,7 @@ jobs:
           tool: cargo-spellcheck
       - name: Run cargo-spellcheck
         run: |
-          if ! cargo spellcheck --code 1
+          if ! cargo spellcheck --code 1 --cfg spellcheck.toml
           then
               echo ''
               echo ''
