@@ -73,7 +73,7 @@ where
                 async move {
                     let mut metrics_rx = metrics_rx;
 
-                    let mut stop_token = None;
+                    let mut is_running = false;
 
                     while !shutdown_token.is_cancelled() {
                         tokio::select! {
@@ -88,21 +88,19 @@ where
                         debug!(metrics.id, ?metrics, "Metrics changed");
 
                         if metrics.state.is_leader() {
-                            if stop_token.is_none() {
+                            if !is_running {
                                 debug!(metrics.id, "Node becomes a leader");
 
-                                let token = CancellationToken::new();
-                                application.leader_lifetime_start(token.clone()).await?;
-                                stop_token = Some(token);
+                                application.leader_lifetime_start().await?;
+                                is_running = true;
                             }
-                        } else if let Some(token) = stop_token.take() {
-                            token.cancel();
+                        } else if is_running {
                             application.leader_lifetime_stop().await?;
+                            is_running = false;
                         }
                     }
 
-                    if let Some(token) = stop_token.take() {
-                        token.cancel();
+                    if is_running {
                         application.leader_lifetime_stop().await?;
                     }
 
