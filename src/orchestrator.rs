@@ -10,6 +10,7 @@ use crate::grpc::controller_service::RaftControllerServiceImpl;
 use crate::grpc::internal_service::RaftServiceImpl;
 use crate::pb::controller::raft_controller_service_server::RaftControllerServiceServer;
 use crate::pb::internal::raft_service_server::RaftServiceServer;
+use crate::server::RaftControlClient;
 use crate::server::RaftServer;
 use crate::server::RaftServiceConfig;
 
@@ -36,6 +37,10 @@ where
             raft_config,
             raft_server,
         })
+    }
+
+    pub async fn get_controller_client(&self) -> RaftControlClient {
+        self.raft_server.control_client()
     }
 
     pub async fn run(self, shutdown_token: CancellationToken) -> anyhow::Result<()> {
