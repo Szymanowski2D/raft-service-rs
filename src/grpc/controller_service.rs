@@ -48,7 +48,7 @@ impl RaftControllerService for RaftControllerServiceImpl {
             .raft_node
             .initialize(nodes_map)
             .await
-            .map_err(|e| Status::internal(format!("Failed to initialize cluster: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to initialize cluster: {e}")))?;
 
         debug!("Cluster initialization successful");
         Ok(Response::new(result))
@@ -83,7 +83,7 @@ impl RaftControllerService for RaftControllerServiceImpl {
             .raft_node
             .add_learner(node.node_id, raft_node, true)
             .await
-            .map_err(|e| Status::internal(format!("Failed to add learner node: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to add learner node: {e}")))?;
 
         debug!("Successfully added learner node {}", node.node_id);
         Ok(Response::new(result.into()))
@@ -112,7 +112,7 @@ impl RaftControllerService for RaftControllerServiceImpl {
             .raft_node
             .change_membership(req.members, req.retain)
             .await
-            .map_err(|e| Status::internal(format!("Failed to change membership: {}", e)))?;
+            .map_err(|e| Status::internal(format!("Failed to change membership: {e}")))?;
 
         debug!("Successfully changed cluster membership");
         Ok(Response::new(result.into()))

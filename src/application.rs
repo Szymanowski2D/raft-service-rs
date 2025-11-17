@@ -30,9 +30,9 @@ pub trait ApplicationLayer: Sized + Send + Sync + 'static {
         shutdown: CancellationToken,
     ) -> anyhow::Result<Self>;
 
-    async fn leader_lifetime_start(&mut self) -> anyhow::Result<()>;
+    async fn leader_lifecycle_start(&mut self) -> anyhow::Result<()>;
 
-    async fn leader_lifetime_stop(&mut self) -> anyhow::Result<()>;
+    async fn leader_lifecycle_stop(&mut self) -> anyhow::Result<()>;
 
     async fn shutdown(self) -> anyhow::Result<()>;
 }

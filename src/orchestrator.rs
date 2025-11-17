@@ -96,17 +96,17 @@ where
                             if !is_running {
                                 debug!(metrics.id, "Node becomes a leader");
 
-                                application.leader_lifetime_start().await?;
+                                application.leader_lifecycle_start().await?;
                                 is_running = true;
                             }
                         } else if is_running {
-                            application.leader_lifetime_stop().await?;
+                            application.leader_lifecycle_stop().await?;
                             is_running = false;
                         }
                     }
 
                     if is_running {
-                        application.leader_lifetime_stop().await?;
+                        application.leader_lifecycle_stop().await?;
                     }
 
                     application.shutdown().await?;

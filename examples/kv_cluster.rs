@@ -300,7 +300,7 @@ mod service {
     struct KeyValueService {
         writing_service_builder: WritingServiceBuilder,
         reading_service_builder: ReadingServiceBuilder,
-        leader_lifetime_cancel: Option<CancellationToken>,
+        leader_lifecycle_cancel: Option<CancellationToken>,
         join_set: Option<JoinSet<()>>,
     }
 
@@ -317,12 +317,12 @@ mod service {
             Ok(KeyValueService {
                 writing_service_builder: WritingServiceBuilder::new(raft_client.clone()),
                 reading_service_builder: ReadingServiceBuilder::new(raft_client),
-                leader_lifetime_cancel: None,
+                leader_lifecycle_cancel: None,
                 join_set: None,
             })
         }
 
-        async fn leader_lifetime_start(&mut self) -> anyhow::Result<()> {
+        async fn leader_lifecycle_start(&mut self) -> anyhow::Result<()> {
             let mut join_set = JoinSet::new();
 
             let cancel = CancellationToken::new();
@@ -343,14 +343,14 @@ mod service {
                 });
             }
 
-            self.leader_lifetime_cancel = Some(cancel);
+            self.leader_lifecycle_cancel = Some(cancel);
             self.join_set = Some(join_set);
 
             Ok(())
         }
 
-        async fn leader_lifetime_stop(&mut self) -> anyhow::Result<()> {
-            if let Some(cancel) = self.leader_lifetime_cancel.take() {
+        async fn leader_lifecycle_stop(&mut self) -> anyhow::Result<()> {
+            if let Some(cancel) = self.leader_lifecycle_cancel.take() {
                 cancel.cancel();
             }
 
