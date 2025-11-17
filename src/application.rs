@@ -36,3 +36,12 @@ pub trait ApplicationLayer: Sized + Send + Sync + 'static {
 
     async fn shutdown(self) -> anyhow::Result<()>;
 }
+
+#[async_trait]
+pub trait LeaderLifecycleService: Send {
+    async fn run(&self, cancel: CancellationToken);
+}
+
+pub trait LeaderLifecycleServiceBuilder {
+    fn build(&self) -> Box<dyn LeaderLifecycleService>;
+}
