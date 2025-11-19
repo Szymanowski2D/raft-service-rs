@@ -12,7 +12,7 @@ use crate::server::RaftDataClient;
 pub trait ApplicationConfig: Debug + Copy + Default + Ord + Send + Sync + 'static {
     type Request: Debug + Display + Serialize + DeserializeOwned + Send + Sync + 'static;
     type Response: Serialize + DeserializeOwned + Send + Sync + 'static;
-    type Snapshot: Clone + Default + Serialize + DeserializeOwned + Send + Sync;
+    type Snapshot: Serialize + DeserializeOwned;
 }
 
 #[async_trait]
