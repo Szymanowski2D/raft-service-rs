@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use openraft::entry::RaftEntry;
 use openraft::entry::RaftPayload;
-use prost::Message;
 
 use crate::application::ApplicationConfig;
 use crate::pb::internal::Entry;
@@ -29,7 +28,7 @@ impl<C: ApplicationConfig> RaftEntry<TypeConfig<C>> for Entry {
         let mut membership = None;
         match payload {
             EntryPayload::Blank => {}
-            EntryPayload::Normal(data) => app_data = Some(data.encode_to_vec()),
+            EntryPayload::Normal(data) => app_data = Some(serde_json::to_vec(&data).unwrap()),
             EntryPayload::Membership(m) => membership = Some(m.into()),
         }
 

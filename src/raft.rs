@@ -43,7 +43,6 @@ pub async fn new_raft<A: ApplicationStateMachine>(
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::Display;
     use std::sync::Arc;
 
     use openraft::testing::log::StoreBuilder;
@@ -64,17 +63,8 @@ mod tests {
     #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
     struct MockApplication {}
 
-    #[derive(Serialize, Deserialize, prost::Message)]
-    struct Request {
-        #[prost(string, tag = "1")]
-        req: String,
-    }
-
-    impl Display for Request {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "MockRequest")
-        }
-    }
+    #[derive(Debug, derive_more::Display, Serialize, Deserialize)]
+    struct Request {}
 
     #[derive(Debug, Serialize, Deserialize)]
     struct Response;

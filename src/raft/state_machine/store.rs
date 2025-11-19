@@ -57,7 +57,7 @@ impl<A: ApplicationStateMachine> RaftStateMachine<TypeConfig<A::C>> for Arc<Stat
             state_machine.last_applied_log = Some(log_id);
 
             let value = if let Some(req) = entry.app_data {
-                let req = prost::Message::decode(req.as_slice())
+                let req = serde_json::from_slice(req.as_slice())
                     .map_err(|e| StorageError::apply(log_id, &e))?;
 
                 let response = state_machine

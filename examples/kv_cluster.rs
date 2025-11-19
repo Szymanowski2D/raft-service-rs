@@ -248,12 +248,10 @@ mod service {
         }
     }
 
-    #[derive(derive_more::Display, Serialize, Deserialize, prost::Message)]
+    #[derive(Debug, derive_more::Display, Serialize, Deserialize)]
     #[display("self")]
     pub struct Request {
-        #[prost(string, tag = "1")]
         key: String,
-        #[prost(string, tag = "2")]
         value: String,
     }
 
