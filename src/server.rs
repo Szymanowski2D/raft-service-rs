@@ -5,12 +5,11 @@ use std::sync::Arc;
 
 use maplit::btreemap;
 use openraft::ChangeMembers;
-use prost::Message;
 use serde::Deserialize;
 use tracing::info;
 
 use crate::application::ApplicationConfig;
-use crate::application::ApplicationData;
+use crate::application::ApplicationStateMachine;
 use crate::raft::config::type_config::CheckIsLeaderError;
 use crate::raft::config::type_config::ClientWriteError;
 use crate::raft::config::type_config::ClientWriteResponse;
@@ -28,27 +27,41 @@ pub struct RaftServiceConfig {
     pub log_path: PathBuf,
 }
 
-#[derive(Clone)]
-pub struct RaftDataClient<C: ApplicationConfig> {
+pub struct RaftDataClient<A: ApplicationStateMachine> {
     node_id: u64,
-    state_machine: Arc<StateMachineStore<C>>,
-    raft: Raft,
+    state_machine: Arc<StateMachineStore<A>>,
+    raft: Raft<A::C>,
 }
 
-impl<C: ApplicationConfig> RaftDataClient<C> {
+impl<A> Clone for RaftDataClient<A>
+where
+    A: ApplicationStateMachine,
+{
+    fn clone(&self) -> Self {
+        Self {
+            node_id: self.node_id,
+            state_machine: self.state_machine.clone(),
+            raft: self.raft.clone(),
+        }
+    }
+}
+
+impl<A> RaftDataClient<A>
+where
+    A: ApplicationStateMachine,
+{
     pub fn node_id(&self) -> u64 {
         self.node_id
     }
 
     pub async fn write(
         &self,
-        request: &<C::Data as ApplicationData>::Request,
-    ) -> Result<ClientWriteResponse, RaftError<ClientWriteError>> {
-        let buf = request.encode_to_vec();
-        self.raft.client_write(buf).await
+        request: <A::C as ApplicationConfig>::Request,
+    ) -> Result<ClientWriteResponse<A::C>, RaftError<A::C, ClientWriteError<A::C>>> {
+        self.raft.client_write(request).await
     }
 
-    pub async fn read<R>(&self, f: impl FnOnce(&C::Data) -> R) -> R {
+    pub async fn read<R>(&self, f: impl FnOnce(&A) -> R) -> R {
         let sm = self.state_machine.state_machine.read().await;
 
         f(&sm.application_data)
@@ -56,8 +69,8 @@ impl<C: ApplicationConfig> RaftDataClient<C> {
 
     pub async fn read_safe<R>(
         &self,
-        f: impl FnOnce(&C::Data) -> R,
-    ) -> Result<R, RaftError<CheckIsLeaderError>> {
+        f: impl FnOnce(&A) -> R,
+    ) -> Result<R, RaftError<A::C, CheckIsLeaderError<A::C>>> {
         let ret = self
             .raft
             .get_read_linearizer(openraft::ReadPolicy::ReadIndex)
@@ -76,12 +89,15 @@ impl<C: ApplicationConfig> RaftDataClient<C> {
     }
 }
 
-pub struct RaftControlClient {
+pub struct RaftControlClient<C: ApplicationConfig> {
     node_id: u64,
-    raft: Raft,
+    raft: Raft<C>,
 }
 
-impl RaftControlClient {
+impl<C> RaftControlClient<C>
+where
+    C: ApplicationConfig,
+{
     pub fn node_id(&self) -> u64 {
         self.node_id
     }
@@ -90,19 +106,19 @@ impl RaftControlClient {
         Ok(self.raft.is_initialized().await?)
     }
 
-    pub async fn initialize(&self, members: HashMap<NodeId, Node>) -> anyhow::Result<()> {
+    pub async fn initialize(&self, members: HashMap<NodeId<C>, Node<C>>) -> anyhow::Result<()> {
         self.raft.initialize(members).await?;
 
         Ok(())
     }
 
-    pub async fn add_learner(&self, id: NodeId, node: Node) -> anyhow::Result<()> {
+    pub async fn add_learner(&self, id: NodeId<C>, node: Node<C>) -> anyhow::Result<()> {
         self.raft.add_learner(id, node, true).await?;
 
         Ok(())
     }
 
-    pub async fn add_voter(&self, node: Node) -> anyhow::Result<()> {
+    pub async fn add_voter(&self, node: Node<C>) -> anyhow::Result<()> {
         self.raft
             .change_membership(
                 ChangeMembers::AddVoters(btreemap! {
@@ -116,13 +132,16 @@ impl RaftControlClient {
     }
 }
 
-pub struct RaftServer<C: ApplicationConfig> {
+pub struct RaftServer<A: ApplicationStateMachine> {
     pub(crate) node_id: u64,
-    pub(crate) state_machine: Arc<StateMachineStore<C>>,
-    pub(crate) raft: Raft,
+    pub(crate) state_machine: Arc<StateMachineStore<A>>,
+    pub(crate) raft: Raft<A::C>,
 }
 
-impl<C: ApplicationConfig> RaftServer<C> {
+impl<A> RaftServer<A>
+where
+    A: ApplicationStateMachine,
+{
     pub async fn new_from_config(config: &RaftServiceConfig) -> anyhow::Result<Self> {
         Self::new(config.node_id, &config.log_path).await
     }
@@ -130,7 +149,7 @@ impl<C: ApplicationConfig> RaftServer<C> {
     pub async fn new(node_id: u64, log_store_path: &Path) -> anyhow::Result<Self> {
         info!(node_id, ?log_store_path, "Init raft");
 
-        let (state_machine, raft) = new_raft::<C>(node_id, log_store_path).await?;
+        let (state_machine, raft) = new_raft::<A>(node_id, log_store_path).await?;
 
         Ok(Self {
             node_id,
@@ -139,14 +158,14 @@ impl<C: ApplicationConfig> RaftServer<C> {
         })
     }
 
-    pub fn control_client(&self) -> RaftControlClient {
+    pub fn control_client(&self) -> RaftControlClient<A::C> {
         RaftControlClient {
             node_id: self.node_id,
             raft: self.raft.clone(),
         }
     }
 
-    pub fn data_client(&self) -> RaftDataClient<C> {
+    pub fn data_client(&self) -> RaftDataClient<A> {
         RaftDataClient {
             node_id: self.node_id,
             state_machine: self.state_machine.clone(),

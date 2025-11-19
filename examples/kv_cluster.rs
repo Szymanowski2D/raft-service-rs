@@ -108,11 +108,13 @@ mod service {
     use prost::DecodeError;
     use raft_service_rs::Node;
     use raft_service_rs::application::ApplicationConfig;
-    use raft_service_rs::application::ApplicationData;
     use raft_service_rs::application::ApplicationLayer;
+    use raft_service_rs::application::ApplicationStateMachine;
     use raft_service_rs::orchestrator::RaftOrchestrator;
     use raft_service_rs::server::RaftDataClient;
     use raft_service_rs::server::RaftServiceConfig;
+    use serde::Deserialize;
+    use serde::Serialize;
     use tokio::task::JoinSet;
     use tokio_util::sync::CancellationToken;
     use tonic::async_trait;
@@ -147,12 +149,12 @@ mod service {
         use tonic::async_trait;
         use tracing::info;
 
-        use crate::service::KeyValueServiceConfig;
+        use crate::service::KeyValueData;
         use crate::service::Request;
         use crate::service::worker::Worker;
 
         pub struct WritingService {
-            raft_client: RaftDataClient<KeyValueServiceConfig>,
+            raft_client: RaftDataClient<KeyValueData>,
         }
 
         #[async_trait]
@@ -170,7 +172,7 @@ mod service {
 
                     info!(node_id = raft_client.node_id(), ?request);
 
-                    raft_client.write(&request).await.unwrap();
+                    raft_client.write(request).await.unwrap();
 
                     sleep(Duration::from_secs(1)).await;
                     start += 1;
@@ -179,11 +181,11 @@ mod service {
         }
 
         pub struct WritingServiceBuilder {
-            raft_client: RaftDataClient<KeyValueServiceConfig>,
+            raft_client: RaftDataClient<KeyValueData>,
         }
 
         impl WritingServiceBuilder {
-            pub fn new(raft_client: RaftDataClient<KeyValueServiceConfig>) -> Self {
+            pub fn new(raft_client: RaftDataClient<KeyValueData>) -> Self {
                 WritingServiceBuilder { raft_client }
             }
 
@@ -204,11 +206,11 @@ mod service {
         use tonic::async_trait;
         use tracing::info;
 
-        use crate::service::KeyValueServiceConfig;
+        use crate::service::KeyValueData;
         use crate::service::worker::Worker;
 
         pub struct ReadingService {
-            raft_client: RaftDataClient<KeyValueServiceConfig>,
+            raft_client: RaftDataClient<KeyValueData>,
         }
 
         #[async_trait]
@@ -230,13 +232,11 @@ mod service {
         }
 
         pub struct ReadingServiceBuilder {
-            raft_client: RaftDataClient<KeyValueServiceConfig>,
+            raft_client: RaftDataClient<KeyValueData>,
         }
 
         impl ReadingServiceBuilder {
-            pub fn new(
-                raft_client: RaftDataClient<KeyValueServiceConfig>,
-            ) -> ReadingServiceBuilder {
+            pub fn new(raft_client: RaftDataClient<KeyValueData>) -> ReadingServiceBuilder {
                 ReadingServiceBuilder { raft_client }
             }
 
@@ -248,7 +248,8 @@ mod service {
         }
     }
 
-    #[derive(prost::Message)]
+    #[derive(derive_more::Display, Serialize, Deserialize, prost::Message)]
+    #[display("self")]
     pub struct Request {
         #[prost(string, tag = "1")]
         key: String,
@@ -256,10 +257,21 @@ mod service {
         value: String,
     }
 
-    #[derive(prost::Message)]
+    #[derive(Serialize, Deserialize)]
+    pub struct Response;
+
+    #[derive(Default, Clone, Serialize, Deserialize)]
     pub struct Snapshot {
-        #[prost(map = "string, string", tag = "1")]
         map: HashMap<String, String>,
+    }
+
+    #[derive(Debug, Clone, Copy, Default, Ord, PartialOrd, Eq, PartialEq)]
+    pub struct KeyValueConfig;
+
+    impl ApplicationConfig for KeyValueConfig {
+        type Request = Request;
+        type Response = Response;
+        type Snapshot = Snapshot;
     }
 
     #[derive(Default)]
@@ -268,33 +280,24 @@ mod service {
     }
 
     #[async_trait]
-    impl ApplicationData for KeyValueData {
-        type Request = Request;
+    impl ApplicationStateMachine for KeyValueData {
+        type C = KeyValueConfig;
 
-        type ApplicationSnapshot = Snapshot;
-
-        fn export(&self) -> Self::ApplicationSnapshot {
+        fn export(&self) -> Snapshot {
             Snapshot {
                 map: self.map.clone(),
             }
         }
 
-        fn import(snapshot: Self::ApplicationSnapshot) -> Result<Self, DecodeError> {
+        fn import(snapshot: Snapshot) -> Result<Self, DecodeError> {
             Ok(KeyValueData { map: snapshot.map })
         }
 
-        async fn apply(&mut self, request: Self::Request) -> anyhow::Result<bool> {
+        async fn apply(&mut self, request: Request) -> anyhow::Result<Response> {
             self.map.insert(request.key, request.value);
 
-            Ok(true)
+            Ok(Response)
         }
-    }
-
-    #[derive(Clone, Default)]
-    pub struct KeyValueServiceConfig;
-
-    impl ApplicationConfig for KeyValueServiceConfig {
-        type Data = KeyValueData;
     }
 
     struct KeyValueService {
@@ -306,12 +309,12 @@ mod service {
 
     #[async_trait]
     impl ApplicationLayer for KeyValueService {
-        type C = KeyValueServiceConfig;
+        type R = KeyValueData;
         type Config = ();
 
         async fn new(
             _config: Self::Config,
-            raft_client: RaftDataClient<Self::C>,
+            raft_client: RaftDataClient<Self::R>,
             _shutdown: CancellationToken,
         ) -> anyhow::Result<Self> {
             Ok(KeyValueService {

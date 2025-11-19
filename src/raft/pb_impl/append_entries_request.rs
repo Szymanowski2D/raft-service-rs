@@ -1,8 +1,9 @@
+use crate::application::ApplicationConfig;
 use crate::pb::internal::AppendEntriesRequest as PbAppendEntriesRequest;
 use crate::raft::config::type_config::AppendEntriesRequest;
 
-impl From<AppendEntriesRequest> for PbAppendEntriesRequest {
-    fn from(req: AppendEntriesRequest) -> Self {
+impl<C: ApplicationConfig> From<AppendEntriesRequest<C>> for PbAppendEntriesRequest {
+    fn from(req: AppendEntriesRequest<C>) -> Self {
         Self {
             vote: Some(req.vote),
             prev_log_id: req.prev_log_id.map(Into::into),
@@ -12,7 +13,7 @@ impl From<AppendEntriesRequest> for PbAppendEntriesRequest {
     }
 }
 
-impl From<PbAppendEntriesRequest> for AppendEntriesRequest {
+impl<C: ApplicationConfig> From<PbAppendEntriesRequest> for AppendEntriesRequest<C> {
     fn from(req: PbAppendEntriesRequest) -> Self {
         Self {
             vote: req.vote.unwrap(),

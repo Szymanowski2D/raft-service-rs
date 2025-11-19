@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fmt::Debug;
+use std::io;
 use std::marker::PhantomData;
 use std::ops::RangeBounds;
 use std::path::Path;
@@ -12,10 +13,10 @@ use openraft::LogState;
 use openraft::OptionalSend;
 use openraft::RaftLogReader;
 use openraft::RaftTypeConfig;
-use openraft::StorageError;
 use openraft::entry::RaftEntry;
 use openraft::storage::IOFlushed;
 use openraft::storage::RaftLogStorage;
+use openraft::type_config::TypeConfigExt;
 use openraft::type_config::alias::EntryOf;
 use openraft::type_config::alias::LogIdOf;
 use openraft::type_config::alias::VoteOf;
@@ -38,7 +39,7 @@ pub(in crate::raft) struct RocksLogStore<C> {
 }
 
 impl<C: RaftTypeConfig> RocksLogStore<C> {
-    pub(in crate::raft) fn new<P: AsRef<Path>>(path: P) -> Result<Self, std::io::Error> {
+    pub(in crate::raft) fn new<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
         let mut opts = Options::default();
         opts.create_missing_column_families(true);
         opts.create_if_missing(true);
@@ -48,8 +49,7 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
             ColumnFamilyDescriptor::new(LOGS_COLUMN, Options::default()),
         ];
 
-        let db =
-            Arc::new(DB::open_cf_descriptors(&opts, path, cfs).map_err(std::io::Error::other)?);
+        let db = Arc::new(DB::open_cf_descriptors(&opts, path, cfs).map_err(io::Error::other)?);
 
         Ok(RocksLogStore {
             db,
@@ -65,27 +65,29 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
         self.db.cf_handle(LOGS_COLUMN).unwrap()
     }
 
-    fn get_meta<M: StoreMeta<C>>(&self) -> Result<Option<M::Value>, StorageError<C>> {
+    fn get_meta<M: StoreMeta<C>>(&self) -> Result<Option<M::Value>, io::Error> {
         let bytes = self
             .db
             .get_cf(self.cf_meta(), M::KEY)
-            .map_err(M::read_err)?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
 
         let Some(bytes) = bytes else {
             return Ok(None);
         };
 
-        let t = serde_json::from_slice(&bytes).map_err(M::read_err)?;
+        let t = serde_json::from_slice(&bytes)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         Ok(Some(t))
     }
 
-    fn put_meta<M: StoreMeta<C>>(&self, value: &M::Value) -> Result<(), StorageError<C>> {
-        let json_value = serde_json::to_vec(value).map_err(|e| M::write_err(value, e))?;
+    fn put_meta<M: StoreMeta<C>>(&self, value: &M::Value) -> Result<(), io::Error> {
+        let json_value =
+            serde_json::to_vec(value).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         self.db
             .put_cf(self.cf_meta(), M::KEY, json_value)
-            .map_err(|e| M::write_err(value, e))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
 
         Ok(())
     }
@@ -95,7 +97,7 @@ impl<C: RaftTypeConfig> RaftLogReader<C> for RocksLogStore<C> {
     async fn try_get_log_entries<RB: RangeBounds<u64> + Clone + Debug + OptionalSend>(
         &mut self,
         range: RB,
-    ) -> Result<Vec<EntryOf<C>>, StorageError<C>> {
+    ) -> Result<Vec<EntryOf<C>>, io::Error> {
         let start = match range.start_bound() {
             std::ops::Bound::Included(x) => id_to_bin(*x),
             std::ops::Bound::Excluded(x) => id_to_bin(*x + 1),
@@ -126,7 +128,7 @@ impl<C: RaftTypeConfig> RaftLogReader<C> for RocksLogStore<C> {
         Ok(res)
     }
 
-    async fn read_vote(&mut self) -> Result<Option<VoteOf<C>>, StorageError<C>> {
+    async fn read_vote(&mut self) -> Result<Option<VoteOf<C>>, io::Error> {
         self.get_meta::<meta::Vote>()
     }
 }
@@ -134,7 +136,7 @@ impl<C: RaftTypeConfig> RaftLogReader<C> for RocksLogStore<C> {
 impl<C: RaftTypeConfig> RaftLogStorage<C> for RocksLogStore<C> {
     type LogReader = Self;
 
-    async fn get_log_state(&mut self) -> Result<LogState<C>, StorageError<C>> {
+    async fn get_log_state(&mut self) -> Result<LogState<C>, io::Error> {
         let last = self
             .db
             .iterator_cf(self.cf_logs(), rocksdb::IteratorMode::End)
@@ -167,19 +169,19 @@ impl<C: RaftTypeConfig> RaftLogStorage<C> for RocksLogStore<C> {
         self.clone()
     }
 
-    async fn save_vote(&mut self, vote: &VoteOf<C>) -> Result<(), StorageError<C>> {
+    async fn save_vote(&mut self, vote: &VoteOf<C>) -> Result<(), io::Error> {
         self.put_meta::<meta::Vote>(vote)?;
 
         let db = self.db.clone();
         spawn_blocking(move || db.flush_wal(true))
             .await
-            .map_err(|e| StorageError::write_vote(&std::io::Error::other(e.to_string())))?
-            .map_err(|e| StorageError::write_vote(&e))?;
+            .map_err(|e| io::Error::other(e.to_string()))?
+            .map_err(|e| io::Error::other(e.to_string()))?;
 
         Ok(())
     }
 
-    async fn append<I>(&mut self, entries: I, callback: IOFlushed<C>) -> Result<(), StorageError<C>>
+    async fn append<I>(&mut self, entries: I, callback: IOFlushed<C>) -> Result<(), io::Error>
     where
         I: IntoIterator<Item = EntryOf<C>> + Send,
     {
@@ -189,50 +191,47 @@ impl<C: RaftTypeConfig> RaftLogStorage<C> for RocksLogStore<C> {
                 .put_cf(
                     self.cf_logs(),
                     id,
-                    serde_json::to_vec(&entry).map_err(|e| StorageError::write_logs(&e))?,
+                    serde_json::to_vec(&entry)
+                        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?,
                 )
-                .map_err(|e| StorageError::write_logs(&e))?;
+                .map_err(|e| io::Error::other(e.to_string()))?;
         }
 
         let db = self.db.clone();
         let handle = spawn_blocking(move || {
-            let res = db.flush_wal(true).map_err(std::io::Error::other);
-            callback.io_completed(res);
+            let res = db.flush_wal(true).map_err(io::Error::other);
+            let _handle = C::spawn(callback.io_completed(res));
         });
         drop(handle);
 
         Ok(())
     }
 
-    async fn truncate(&mut self, log_id: LogIdOf<C>) -> Result<(), StorageError<C>> {
+    async fn truncate(&mut self, log_id: LogIdOf<C>) -> Result<(), io::Error> {
         let from = id_to_bin(log_id.index());
         let to = id_to_bin(u64::MAX);
         self.db
             .delete_range_cf(self.cf_logs(), &from, &to)
-            .map_err(|e| StorageError::write_logs(&e))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
 
         Ok(())
     }
 
-    async fn purge(&mut self, log_id: LogIdOf<C>) -> Result<(), StorageError<C>> {
+    async fn purge(&mut self, log_id: LogIdOf<C>) -> Result<(), io::Error> {
         self.put_meta::<meta::LastPurged>(&log_id)?;
 
         let from = id_to_bin(0);
         let to = id_to_bin(log_id.index() + 1);
         self.db
             .delete_range_cf(self.cf_logs(), &from, &to)
-            .map_err(|e| StorageError::write_logs(&e))?;
+            .map_err(|e| io::Error::other(e.to_string()))?;
 
         Ok(())
     }
 }
 
 mod meta {
-    use openraft::AnyError;
-    use openraft::ErrorSubject;
-    use openraft::ErrorVerb;
     use openraft::RaftTypeConfig;
-    use openraft::StorageError;
     use openraft::type_config::alias::LogIdOf;
     use openraft::type_config::alias::VoteOf;
     use serde::Serialize;
@@ -242,16 +241,6 @@ mod meta {
         const KEY: &'static str;
 
         type Value: Serialize + DeserializeOwned;
-
-        fn subject(v: Option<&Self::Value>) -> ErrorSubject<C>;
-
-        fn read_err(e: impl std::error::Error + 'static) -> StorageError<C> {
-            StorageError::new(Self::subject(None), ErrorVerb::Read, AnyError::new(&e))
-        }
-
-        fn write_err(v: &Self::Value, e: impl std::error::Error + 'static) -> StorageError<C> {
-            StorageError::new(Self::subject(Some(v)), ErrorVerb::Write, AnyError::new(&e))
-        }
     }
 
     pub struct LastPurged {}
@@ -262,22 +251,15 @@ mod meta {
         C: RaftTypeConfig,
     {
         const KEY: &'static str = "last_purged_log_id";
-
         type Value = LogIdOf<C>;
-
-        fn subject(_v: Option<&Self::Value>) -> ErrorSubject<C> {
-            ErrorSubject::Store
-        }
     }
 
-    impl<C: RaftTypeConfig> StoreMeta<C> for Vote {
+    impl<C> StoreMeta<C> for Vote
+    where
+        C: RaftTypeConfig,
+    {
         const KEY: &'static str = "vote";
-
         type Value = VoteOf<C>;
-
-        fn subject(_v: Option<&Self::Value>) -> ErrorSubject<C> {
-            ErrorSubject::Vote
-        }
     }
 }
 
@@ -291,9 +273,6 @@ fn bin_to_id(buf: &[u8]) -> u64 {
     (&buf[0..8]).read_u64::<BigEndian>().unwrap()
 }
 
-fn read_logs_err<C>(e: impl Error + 'static) -> StorageError<C>
-where
-    C: RaftTypeConfig,
-{
-    StorageError::read_logs(&e)
+fn read_logs_err(e: impl Error + 'static) -> io::Error {
+    io::Error::other(e.to_string())
 }

@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
 
+use crate::application::ApplicationConfig;
 use crate::pb::common::Membership as PbMembership;
 use crate::pb::common::NodeIdSet;
 use crate::raft::config::type_config::Membership;
 
-impl From<PbMembership> for Membership {
+impl<C: ApplicationConfig> From<PbMembership> for Membership<C> {
     fn from(membership: PbMembership) -> Self {
         let mut configs = vec![];
         for c in membership.configs {
@@ -16,8 +17,8 @@ impl From<PbMembership> for Membership {
     }
 }
 
-impl From<Membership> for PbMembership {
-    fn from(membership: Membership) -> Self {
+impl<C: ApplicationConfig> From<Membership<C>> for PbMembership {
+    fn from(membership: Membership<C>) -> Self {
         let mut configs = vec![];
         for c in membership.get_joint_config() {
             let mut node_ids = BTreeMap::new();

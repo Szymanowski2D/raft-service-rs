@@ -2,20 +2,21 @@ use std::fmt;
 
 use openraft::vote::RaftVote;
 
+use crate::application::ApplicationConfig;
 use crate::pb::internal::Vote as PbVote;
 use crate::raft::config::type_config::LeaderId;
 use crate::raft::config::type_config::TypeConfig;
 
-impl RaftVote<TypeConfig> for PbVote {
-    fn from_leader_id(leader_id: LeaderId, committed: bool) -> Self {
+impl<C: ApplicationConfig> RaftVote<TypeConfig<C>> for PbVote {
+    fn from_leader_id(leader_id: LeaderId<C>, committed: bool) -> Self {
         Self {
             leader_id: Some(leader_id),
             committed,
         }
     }
 
-    fn leader_id(&self) -> Option<&LeaderId> {
-        self.leader_id.as_ref()
+    fn leader_id(&self) -> &LeaderId<C> {
+        self.leader_id.as_ref().unwrap()
     }
 
     fn is_committed(&self) -> bool {

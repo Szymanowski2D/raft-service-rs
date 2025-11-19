@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use openraft::Config;
 
-use crate::application::ApplicationConfig;
+use crate::application::ApplicationStateMachine;
 use crate::raft::config::type_config::NodeId;
 use crate::raft::config::type_config::Raft;
 use crate::raft::log_store::rocksdb::RocksLogStore;
@@ -17,10 +17,10 @@ mod log_store;
 mod network;
 mod pb_impl;
 
-pub async fn new_raft<C: ApplicationConfig>(
-    node_id: NodeId,
+pub async fn new_raft<A: ApplicationStateMachine>(
+    node_id: NodeId<A::C>,
     path: &Path,
-) -> anyhow::Result<(Arc<StateMachineStore<C>>, Raft)> {
+) -> anyhow::Result<(Arc<StateMachineStore<A>>, Raft<A::C>)> {
     let config = Arc::new(
         Config {
             heartbeat_interval: 500,
@@ -33,7 +33,7 @@ pub async fn new_raft<C: ApplicationConfig>(
 
     let network = GRPCNetwork::default();
     let log_store = RocksLogStore::new(path)?;
-    let state_machine = Arc::new(StateMachineStore::<C>::default());
+    let state_machine = Arc::new(StateMachineStore::<A>::default());
 
     Ok((
         state_machine.clone(),
@@ -43,56 +43,75 @@ pub async fn new_raft<C: ApplicationConfig>(
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Display;
     use std::sync::Arc;
 
     use openraft::testing::log::StoreBuilder;
     use openraft::testing::log::Suite;
     use prost::DecodeError;
+    use serde::Deserialize;
+    use serde::Serialize;
     use tempfile::TempDir;
     use tonic::async_trait;
 
     use crate::application::ApplicationConfig;
-    use crate::application::ApplicationData;
+    use crate::application::ApplicationStateMachine;
     use crate::raft::RocksLogStore;
     use crate::raft::config::type_config::StorageError;
     use crate::raft::config::type_config::TypeConfig;
     use crate::raft::state_machine::store::StateMachineStore;
 
-    #[derive(Default)]
-    struct MockApplicationData {}
+    #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+    struct MockApplication {}
 
-    #[async_trait]
-    impl ApplicationData for MockApplicationData {
-        type Request = ();
+    #[derive(Serialize, Deserialize, prost::Message)]
+    struct Request {
+        #[prost(string, tag = "1")]
+        req: String,
+    }
 
-        type ApplicationSnapshot = ();
-
-        fn export(&self) -> Self::ApplicationSnapshot {}
-
-        fn import(_snapshot: Self::ApplicationSnapshot) -> Result<Self, DecodeError> {
-            Ok(MockApplicationData::default())
-        }
-
-        async fn apply(&mut self, _request: Self::Request) -> anyhow::Result<bool> {
-            Ok(true)
+    impl Display for Request {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "MockRequest")
         }
     }
 
-    #[derive(Default)]
-    struct MockApplicationConfig {}
+    #[derive(Debug, Serialize, Deserialize)]
+    struct Response;
+
+    #[derive(Clone, Default, Serialize, Deserialize)]
+    struct Snapshot;
+
+    impl ApplicationConfig for MockApplication {
+        type Request = Request;
+        type Response = Response;
+        type Snapshot = Snapshot;
+    }
 
     #[async_trait]
-    impl ApplicationConfig for MockApplicationConfig {
-        type Data = MockApplicationData;
+    impl ApplicationStateMachine for MockApplication {
+        type C = MockApplication;
+
+        fn export(&self) -> Snapshot {
+            Snapshot::default()
+        }
+
+        fn import(_snapshot: Snapshot) -> Result<Self, DecodeError> {
+            Ok(MockApplication::default())
+        }
+
+        async fn apply(&mut self, _request: Request) -> anyhow::Result<Response> {
+            Ok(Response)
+        }
     }
 
     struct RocksStoreBuilder {}
 
     impl
         StoreBuilder<
-            TypeConfig,
-            RocksLogStore<TypeConfig>,
-            Arc<StateMachineStore<MockApplicationConfig>>,
+            TypeConfig<MockApplication>,
+            RocksLogStore<TypeConfig<MockApplication>>,
+            Arc<StateMachineStore<MockApplication>>,
             (),
         > for RocksStoreBuilder
     {
@@ -101,10 +120,10 @@ mod tests {
         ) -> Result<
             (
                 (),
-                RocksLogStore<TypeConfig>,
-                Arc<StateMachineStore<MockApplicationConfig>>,
+                RocksLogStore<TypeConfig<MockApplication>>,
+                Arc<StateMachineStore<MockApplication>>,
             ),
-            StorageError,
+            StorageError<MockApplication>,
         > {
             let tmp_dir = TempDir::new().map_err(|e| StorageError::read_logs(&e))?;
 

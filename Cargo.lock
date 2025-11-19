@@ -409,7 +409,16 @@ version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
 dependencies = [
- "derive_more-impl",
+ "derive_more-impl 1.0.0",
+]
+
+[[package]]
+name = "derive_more"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "093242cf7570c207c83073cf82f79706fe7b8317e98620a47d5be7c3d8497678"
+dependencies = [
+ "derive_more-impl 2.0.1",
 ]
 
 [[package]]
@@ -417,6 +426,18 @@ name = "derive_more-impl"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+ "unicode-xid",
+]
+
+[[package]]
+name = "derive_more-impl"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bda628edc44c4bb645fbe0f758797143e4e07926f7ebf4e9bdfbd3d2ce621df3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1005,13 +1026,13 @@ checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
 [[package]]
 name = "openraft"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft.git?rev=4852695b6b9f6aae657d7db917bef908b9ad490c#4852695b6b9f6aae657d7db917bef908b9ad490c"
+source = "git+https://github.com/databendlabs/openraft.git?rev=f13f0eec7922e84ad9a3beeb166bb8a8133805ad#f13f0eec7922e84ad9a3beeb166bb8a8133805ad"
 dependencies = [
  "anyerror",
  "byte-unit",
  "chrono",
  "clap",
- "derive_more",
+ "derive_more 1.0.0",
  "futures",
  "maplit",
  "openraft-macros",
@@ -1027,7 +1048,7 @@ dependencies = [
 [[package]]
 name = "openraft-macros"
 version = "0.10.0"
-source = "git+https://github.com/databendlabs/openraft.git?rev=4852695b6b9f6aae657d7db917bef908b9ad490c#4852695b6b9f6aae657d7db917bef908b9ad490c"
+source = "git+https://github.com/databendlabs/openraft.git?rev=f13f0eec7922e84ad9a3beeb166bb8a8133805ad#f13f0eec7922e84ad9a3beeb166bb8a8133805ad"
 dependencies = [
  "chrono",
  "proc-macro2",
@@ -1271,6 +1292,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "byteorder",
+ "derive_more 2.0.1",
  "futures-util",
  "maplit",
  "openraft",

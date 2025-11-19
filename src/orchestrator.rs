@@ -6,6 +6,7 @@ use tracing::debug;
 use tracing::error;
 
 use crate::application::ApplicationLayer;
+use crate::application::ApplicationStateMachine;
 use crate::grpc::controller_service::RaftControllerServiceImpl;
 use crate::grpc::internal_service::RaftServiceImpl;
 use crate::pb::controller::raft_controller_service_server::RaftControllerServiceServer;
@@ -17,7 +18,7 @@ use crate::server::RaftServiceConfig;
 pub struct RaftOrchestrator<A: ApplicationLayer> {
     application_config: A::Config,
     raft_config: RaftServiceConfig,
-    raft_server: RaftServer<A::C>,
+    raft_server: RaftServer<A::R>,
 }
 
 impl<A> RaftOrchestrator<A>
@@ -39,7 +40,9 @@ where
         })
     }
 
-    pub async fn get_controller_client(&self) -> RaftControlClient {
+    pub async fn get_controller_client(
+        &self,
+    ) -> RaftControlClient<<A::R as ApplicationStateMachine>::C> {
         self.raft_server.control_client()
     }
 

@@ -1,32 +1,48 @@
+use std::fmt::Debug;
+use std::fmt::Display;
+
 use prost::DecodeError;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tokio_util::sync::CancellationToken;
 use tonic::async_trait;
 
 use crate::server::RaftDataClient;
 
-#[async_trait]
-pub trait ApplicationData: Default + Send + Sync {
-    type Request: prost::Message + Default + Send + Sync + 'static;
-
-    type ApplicationSnapshot: prost::Message + Default + Send + Sync + 'static;
-
-    fn export(&self) -> Self::ApplicationSnapshot;
-    fn import(snapshot: Self::ApplicationSnapshot) -> Result<Self, DecodeError>;
-    async fn apply(&mut self, request: Self::Request) -> anyhow::Result<bool>;
+pub trait ApplicationConfig: Debug + Copy + Default + Ord + Send + Sync + 'static {
+    type Request: Debug
+        + Display
+        + Default
+        + Serialize
+        + DeserializeOwned
+        + prost::Message
+        + Send
+        + Sync
+        + 'static;
+    type Response: Serialize + DeserializeOwned + Send + Sync + 'static;
+    type Snapshot: Clone + Default + Serialize + DeserializeOwned + Send + Sync;
 }
 
-pub trait ApplicationConfig: Default + Send + Sync + 'static {
-    type Data: ApplicationData;
+#[async_trait]
+pub trait ApplicationStateMachine: Default + Send + Sync + 'static {
+    type C: ApplicationConfig;
+
+    fn export(&self) -> <Self::C as ApplicationConfig>::Snapshot;
+    fn import(snapshot: <Self::C as ApplicationConfig>::Snapshot) -> Result<Self, DecodeError>;
+    async fn apply(
+        &mut self,
+        request: <Self::C as ApplicationConfig>::Request,
+    ) -> anyhow::Result<<Self::C as ApplicationConfig>::Response>;
 }
 
 #[async_trait]
 pub trait ApplicationLayer: Sized + Send + Sync + 'static {
-    type C: ApplicationConfig;
+    type R: ApplicationStateMachine;
     type Config;
 
     async fn new(
         config: Self::Config,
-        sm: RaftDataClient<Self::C>,
+        sm: RaftDataClient<Self::R>,
         shutdown: CancellationToken,
     ) -> anyhow::Result<Self>;
 

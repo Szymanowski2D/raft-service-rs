@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .type_attribute(
             "internal.LeaderId",
-            "#[derive(serde::Serialize, serde::Deserialize, PartialOrd)]",
+            "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .type_attribute(
             "internal.Vote",

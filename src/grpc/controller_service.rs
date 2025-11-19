@@ -6,24 +6,31 @@ use tonic::Status;
 use tonic::async_trait;
 use tracing::debug;
 
+use crate::application::ApplicationConfig;
 use crate::pb::controller::InitRequest;
 use crate::pb::controller::raft_controller_service_server::RaftControllerService;
 use crate::pb::{self};
 use crate::raft::config::type_config::Node;
 use crate::raft::config::type_config::Raft;
 
-pub(crate) struct RaftControllerServiceImpl {
-    raft_node: Raft,
+pub(crate) struct RaftControllerServiceImpl<C: ApplicationConfig> {
+    raft_node: Raft<C>,
 }
 
-impl RaftControllerServiceImpl {
-    pub(crate) fn new(raft_node: Raft) -> Self {
+impl<C> RaftControllerServiceImpl<C>
+where
+    C: ApplicationConfig,
+{
+    pub(crate) fn new(raft_node: Raft<C>) -> Self {
         RaftControllerServiceImpl { raft_node }
     }
 }
 
 #[async_trait]
-impl RaftControllerService for RaftControllerServiceImpl {
+impl<C> RaftControllerService for RaftControllerServiceImpl<C>
+where
+    C: ApplicationConfig,
+{
     /// Initializes a new Raft cluster with the specified nodes
     ///
     /// # Arguments
@@ -74,7 +81,7 @@ impl RaftControllerService for RaftControllerServiceImpl {
 
         debug!("Adding learner node {}", node.node_id);
 
-        let raft_node = Node {
+        let raft_node = Node::<C> {
             rpc_addr: node.rpc_addr.clone(),
             node_id: node.node_id,
         };

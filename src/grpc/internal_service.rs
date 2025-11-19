@@ -5,6 +5,7 @@ use tonic::Status;
 use tonic::Streaming;
 use tonic::async_trait;
 
+use crate::application::ApplicationConfig;
 use crate::pb::internal::raft_service_server::RaftService;
 use crate::pb::internal::*;
 use crate::raft::config::type_config::Raft;
@@ -12,18 +13,24 @@ use crate::raft::config::type_config::Snapshot;
 use crate::raft::config::type_config::SnapshotMeta;
 use crate::raft::config::type_config::StoredMembership;
 
-pub(crate) struct RaftServiceImpl {
-    raft_node: Raft,
+pub(crate) struct RaftServiceImpl<C: ApplicationConfig> {
+    raft_node: Raft<C>,
 }
 
-impl RaftServiceImpl {
-    pub(crate) fn new(raft_node: Raft) -> Self {
+impl<C> RaftServiceImpl<C>
+where
+    C: ApplicationConfig,
+{
+    pub(crate) fn new(raft_node: Raft<C>) -> Self {
         RaftServiceImpl { raft_node }
     }
 }
 
 #[async_trait]
-impl RaftService for RaftServiceImpl {
+impl<C> RaftService for RaftServiceImpl<C>
+where
+    C: ApplicationConfig,
+{
     /// Vote handles vote requests between Raft nodes during leader election
     async fn vote(&self, request: Request<VoteRequest>) -> Result<Response<VoteResponse>, Status> {
         let response = self

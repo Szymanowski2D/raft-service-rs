@@ -9,6 +9,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::Request;
 use tonic::transport::Channel;
 
+use crate::application::ApplicationConfig;
 use crate::pb::internal::SnapshotRequest;
 use crate::pb::internal::SnapshotRequestMeta;
 use crate::pb::internal::raft_service_client::RaftServiceClient;
@@ -25,7 +26,10 @@ use crate::raft::config::type_config::Vote;
 use crate::raft::config::type_config::VoteRequest;
 use crate::raft::config::type_config::VoteResponse;
 
-async fn new_client(rpc_addr: &str) -> Result<RaftServiceClient<Channel>, RPCError> {
+async fn new_client<C>(rpc_addr: &str) -> Result<RaftServiceClient<Channel>, RPCError<C>>
+where
+    C: ApplicationConfig,
+{
     let channel = match Channel::builder(format!("http://{rpc_addr}").parse().unwrap())
         .connect()
         .await
@@ -39,22 +43,28 @@ async fn new_client(rpc_addr: &str) -> Result<RaftServiceClient<Channel>, RPCErr
     Ok(RaftServiceClient::new(channel))
 }
 
-pub(in crate::raft) struct GRPCNetworkConnection {
-    target_node: Node,
+pub(in crate::raft) struct GRPCNetworkConnection<C: ApplicationConfig> {
+    target_node: Node<C>,
 }
 
-impl GRPCNetworkConnection {
-    pub(super) fn new(target_node: Node) -> Self {
+impl<C> GRPCNetworkConnection<C>
+where
+    C: ApplicationConfig,
+{
+    pub(super) fn new(target_node: Node<C>) -> Self {
         Self { target_node }
     }
 }
 
-impl RaftNetworkV2<TypeConfig> for GRPCNetworkConnection {
+impl<C> RaftNetworkV2<TypeConfig<C>> for GRPCNetworkConnection<C>
+where
+    C: ApplicationConfig,
+{
     async fn append_entries(
         &mut self,
-        rpc: AppendEntriesRequest,
+        rpc: AppendEntriesRequest<C>,
         _option: RPCOption,
-    ) -> Result<AppendEntriesResponse, RPCError> {
+    ) -> Result<AppendEntriesResponse<C>, RPCError<C>> {
         let mut client = new_client(&self.target_node.rpc_addr).await?;
 
         let request = Request::new(rpc.into());
@@ -70,9 +80,9 @@ impl RaftNetworkV2<TypeConfig> for GRPCNetworkConnection {
 
     async fn vote(
         &mut self,
-        rpc: VoteRequest,
+        rpc: VoteRequest<C>,
         _option: RPCOption,
-    ) -> Result<VoteResponse, RPCError> {
+    ) -> Result<VoteResponse<C>, RPCError<C>> {
         let mut client = new_client(&self.target_node.rpc_addr).await?;
 
         let request = Request::new(rpc.into());
@@ -89,11 +99,11 @@ impl RaftNetworkV2<TypeConfig> for GRPCNetworkConnection {
 
     async fn full_snapshot(
         &mut self,
-        vote: Vote,
-        snapshot: Snapshot,
+        vote: Vote<C>,
+        snapshot: Snapshot<C>,
         _cancel: impl Future<Output = ReplicationClosed> + OptionalSend + 'static,
         _option: RPCOption,
-    ) -> Result<SnapshotResponse, StreamingError> {
+    ) -> Result<SnapshotResponse<C>, StreamingError<C>> {
         let mut client = new_client(&self.target_node.rpc_addr).await?;
 
         let (tx, rx) = tokio::sync::mpsc::channel(1024);
